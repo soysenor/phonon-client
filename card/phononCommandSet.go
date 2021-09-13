@@ -679,7 +679,7 @@ func (cs *PhononCommandSet) TransactionAck(keyIndices []uint16) error {
 func (cs *PhononCommandSet) InitCardPairing() (initPairingData []byte, err error) {
 	log.Debug("sending INIT_CARD_PAIRING command")
 	cmd := NewCommandInitCardPairing()
-	resp, err := cs.sc.Send(cmd)
+	resp, err := cs.c.Send(cmd.ApduCmd)
 	if err != nil {
 		return nil, err
 	}
@@ -695,7 +695,7 @@ func (cs *PhononCommandSet) InitCardPairing() (initPairingData []byte, err error
 func (cs *PhononCommandSet) CardPair(initPairingData []byte) (cardPairData []byte, err error) {
 	log.Debug("sending CARD_PAIR command")
 	cmd := NewCommandCardPair(initPairingData)
-	resp, err := cs.sc.Send(cmd)
+	resp, err := cs.c.Send(cmd.ApduCmd)
 	if err != nil {
 		return nil, err
 	}
@@ -709,7 +709,7 @@ func (cs *PhononCommandSet) CardPair(initPairingData []byte) (cardPairData []byt
 func (cs *PhononCommandSet) CardPair2(cardPairData []byte) (cardPair2Data []byte, err error) {
 	log.Debug("sending CARD_PAIR_2 command")
 	cmd := NewCommandCardPair2(cardPairData)
-	resp, err := cs.sc.Send(cmd)
+	resp, err := cs.c.Send(cmd.ApduCmd)
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +724,7 @@ func (cs *PhononCommandSet) CardPair2(cardPairData []byte) (cardPair2Data []byte
 func (cs *PhononCommandSet) FinalizeCardPair(cardPair2Data []byte) (err error) {
 	log.Debug("sending FINALIZE_CARD_PAIR command")
 	cmd := NewCommandFinalizeCardPair(cardPair2Data)
-	resp, err := cs.sc.Send(cmd)
+	resp, err := cs.c.Send(cmd.ApduCmd)
 	if err != nil {
 		return err
 	}
