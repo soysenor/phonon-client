@@ -1,11 +1,13 @@
 package repl
 
 import (
+	"crypto/sha256"
 	"strconv"
 
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/util"
 	ishell "github.com/abiosoft/ishell/v2"
+	"github.com/btcsuite/btcutil/base58"
 )
 
 func createPhonon(c *ishell.Context) {
@@ -142,4 +144,14 @@ func redeemPhonon(c *ishell.Context) {
 	c.Println("private key: ")
 	//TODO: Find a better encoding format
 	c.Printf("%x\n", privKey.D)
+
+	//temporary code for BTC export
+	c.Println("WIF format for BTC keys:")
+	wifBytes := append([]byte{0x80}, privKey.D.Bytes()...)
+	tmp := sha256.Sum256(wifBytes)
+	chksum := sha256.Sum256(tmp[:])
+	wifBytes = append(wifBytes, chksum[0:4]...)
+	base58WIF := base58.Encode(wifBytes)
+	c.Println(base58WIF)
+
 }
