@@ -76,6 +76,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			err := session.receiver.Decode(&message)
 			if err != nil {
 				log.Info("Error receiving message from connected client")
+				session.endSession(Message{"", []byte("")})
 				return
 			}
 			msgchan <- message
@@ -248,6 +249,7 @@ func (c *clientSession) endSession(msg Message) {
 	if c.Counterparty != nil {
 		c.disconnectFromCard(msg)
 	}
+	delete(clientSessions, c.Name)
 	c.underlyingConn.Close()
 }
 
