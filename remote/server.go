@@ -246,7 +246,7 @@ func (c *clientSession) disconnectFromCard(msg Message) {
 	if c.sender != nil {
 		c.sender.Encode(out)
 	}
-	if c.Counterparty != nil && c.Counterparty.Counterparty != nil {
+	if c.Counterparty != nil {
 		c.Counterparty.Counterparty = nil
 	}
 	c.Counterparty = nil
