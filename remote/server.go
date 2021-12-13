@@ -239,18 +239,24 @@ func (c *clientSession) disconnectFromCard(msg Message) {
 		Name: MessageDisconnected,
 	}
 	// encode can fail, so it needs to be checked. Not sure how to handle that
-	c.Counterparty.sender.Encode(out)
-	c.sender.Encode(out)
-	c.Counterparty.Counterparty = nil
+	if c.Counterparty.sender != nil {
+		c.Counterparty.sender.Encode(out)
+	}
+	if c.sender != nil {
+		c.sender.Encode(out)
+	}
+	if c.Counterparty != nil && c.Counterparty.Counterparty != nil {
+		c.Counterparty.Counterparty = nil
+	}
 	c.Counterparty = nil
 }
 
 func (c *clientSession) endSession(msg Message) {
-	if c.Counterparty != nil {
-		c.disconnectFromCard(msg)
-	}
+	c.disconnectFromCard(msg)
 	delete(clientSessions, c.Name)
-	c.underlyingConn.Close()
+	if c.underlyingConn != nil {
+		c.underlyingConn.Close()
+	}
 }
 
 func (c *clientSession) noop(msg Message) {
