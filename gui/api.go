@@ -33,6 +33,8 @@ func Server(port string, certFile string, keyFile string) {
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "HEAD", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Origin"},
 		AllowCredentials: true,
 	})
 	handler := c.Handler(r)
@@ -49,7 +51,7 @@ func Server(port string, certFile string, keyFile string) {
 	r.HandleFunc("/cards/{sessionID}/phonon/create", createPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", redeemPhonon)
 	// api docs
-	http.Handle("/swagger/", http.FileServer(http.FS(swagger)))
+	r.Handle("/swagger/", http.FileServer(http.FS(swagger)))
 	r.HandleFunc("/swagger.json", serveapi)
 
 	http.Handle("/", r)
