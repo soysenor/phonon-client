@@ -293,8 +293,6 @@ func (c *clientSession) endSession(msg model.Message) {
 	if c.underlyingConn != nil {
 		c.underlyingConn.Close()
 	}
-	delete(clientSessions, c.Name)
-	c.underlyingConn.Close()
 }
 
 func (c *clientSession) noop(msg model.Message) {
