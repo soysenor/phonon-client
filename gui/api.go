@@ -15,6 +15,8 @@ import (
 	"github.com/GridPlus/phonon-client/session"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
+	log "github.com/sirupsen/logrus"
 )
 
 //go:embed swagger.yaml
@@ -25,9 +27,16 @@ var swagger embed.FS
 
 var t orchestrator.PhononTerminal
 
-func Server() {
+func Server(port string, certFile string, keyFile string) {
 	t.RefreshSessions()
 	r := mux.NewRouter()
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: true,
+	})
+	handler := c.Handler(r)
+
 	// sessions
 	r.HandleFunc("/genMock", generatemock)
 	r.HandleFunc("/listSessions", listSessions)
@@ -44,7 +53,18 @@ func Server() {
 	r.HandleFunc("/swagger.json", serveapi)
 
 	http.Handle("/", r)
-	http.ListenAndServe(":8080", nil)
+	if certFile != "" && keyFile != "" {
+		err := http.ListenAndServeTLS(":"+port, certFile, keyFile, handler)
+		if err != nil {
+			log.Fatal("could not start GUI REST server on SSL: ", err)
+		}
+	} else {
+		err := http.ListenAndServe(":"+port, handler)
+		if err != nil {
+			log.Fatal("could not start GUI REST server", err)
+		}
+	}
+
 }
 
 func createPhonon(w http.ResponseWriter, r *http.Request) {
