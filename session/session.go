@@ -248,6 +248,11 @@ func (s *Session) SendPhonons(keyIndices []uint16) error {
 	if !s.verified() && s.RemoteCard != nil {
 		return ErrCardNotPairedToCard
 	}
+	err := s.RemoteCard.VerifyPaired()
+	if err != nil {
+		return err
+	}
+
 	phononTransferPacket, err := s.cs.SendPhonons(keyIndices, false)
 	if err != nil {
 		return err

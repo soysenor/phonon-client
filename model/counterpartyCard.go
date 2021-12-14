@@ -12,4 +12,5 @@ type CounterpartyPhononCard interface {
 	ReceivePhonons(phononTransfer []byte) error
 	GenerateInvoice() (invoiceData []byte, err error)
 	ReceiveInvoice(invoiceData []byte) error
+	VerifyPaired() error
 }

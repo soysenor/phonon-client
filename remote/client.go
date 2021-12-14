@@ -15,6 +15,7 @@ import (
 	"github.com/GridPlus/phonon-client/card"
 	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/session"
+	"github.com/GridPlus/phonon-client/util"
 	"github.com/posener/h2conn"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
@@ -31,6 +32,7 @@ type RemoteConnection struct {
 	verified                 bool
 	connectedToCardChan      chan bool
 	pairFinalized            bool
+	verifyPairedChan         chan string
 
 	//card pairing message channels
 	remoteCertificateChan    chan cert.CardCertificate
@@ -129,6 +131,14 @@ func (c *RemoteConnection) process(msg Message) {
 		c.phononAckChan <- true
 	case RequestReceivePhonon:
 		c.processReceivePhonons(msg)
+	case RequestVerifyPaired:
+		c.processRequestVerifyPaired(msg)
+	case ResponseVerifyPaired:
+		{
+			if c.verifyPairedChan != nil {
+				c.verifyPairedChan <- string(msg.Payload)
+			}
+		}
 	}
 }
 
@@ -331,5 +341,46 @@ func (c *RemoteConnection) sendMessage(messageName string, messagePayload []byte
 		Payload: messagePayload,
 	}
 
+	c.encoder.Encode(tosend)
+}
+
+func (c *RemoteConnection) VerifyPaired() error {
+	tosend := &Message{
+		Name:    RequestVerifyPaired,
+		Payload: []byte(""),
+	}
+	c.verifyPairedChan = make(chan string)
+	c.encoder.Encode(tosend)
+
+	var connectedCardID string
+	select {
+	case connectedCardID = <-c.verifyPairedChan:
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("counterparty card not paired to this card")
+	}
+	c.verifyPairedChan = nil
+
+	var err error
+	if connectedCardID != c.session.GetName() {
+		//remote isn't paired to this card
+		err = c.session.PairWithRemoteCard(c)
+
+	}
+	return err
+}
+
+func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
+	tosend := &Message{
+		Name: ResponseVerifyPaired,
+	}
+	if c.pairFinalized {
+		key, err := util.ParseECDSAPubKey(c.remoteCertificate.PubKey)
+		if err != nil {
+			//oopsie
+			return
+		}
+		msg := util.ECDSAPubKeyToHexString(key)[:16]
+		tosend.Payload = []byte(msg)
+	}
 	c.encoder.Encode(tosend)
 }

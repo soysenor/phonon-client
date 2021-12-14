@@ -171,7 +171,7 @@ func (c *clientSession) process(msg Message) {
 		c.endSession(msg)
 	case RequestNoOp:
 		c.noop(msg)
-	case ResponseIdentify, RequestCardPair1, ResponseCardPair1, RequestCardPair2, ResponseCardPair2, RequestFinalizeCardPair, ResponseFinalizeCardPair, RequestReceivePhonon, MessagePhononAck:
+	case ResponseIdentify, RequestCardPair1, ResponseCardPair1, RequestCardPair2, ResponseCardPair2, RequestFinalizeCardPair, ResponseFinalizeCardPair, RequestReceivePhonon, MessagePhononAck, RequestVerifyPaired, ResponseVerifyPaired:
 		c.passthrough(msg)
 	case RequestCertificate:
 		c.provideCertificate()
