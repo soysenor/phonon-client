@@ -32,6 +32,7 @@ type RemoteConnection struct {
 	counterpartyNonce        [32]byte
 	verified                 bool
 	connectedToCardChan      chan bool
+	pairFinalized            bool
 	verifyPairedChan         chan string
 
 	//card pairing message channels
@@ -434,4 +435,45 @@ func (c *RemoteConnection) disconnect() {
 func (c *RemoteConnection) disconnectFromCard() {
 	c.pairingStatus = model.StatusConnectedToBridge
 	c.session.SetPaired(false)
+}
+
+func (c *RemoteConnection) VerifyPaired() error {
+	tosend := &Message{
+		Name:    RequestVerifyPaired,
+		Payload: []byte(""),
+	}
+	c.verifyPairedChan = make(chan string)
+	c.encoder.Encode(tosend)
+
+	var connectedCardID string
+	select {
+	case connectedCardID = <-c.verifyPairedChan:
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("counterparty card not paired to this card")
+	}
+	c.verifyPairedChan = nil
+
+	var err error
+	if connectedCardID != c.session.GetName() {
+		//remote isn't paired to this card
+		err = c.session.PairWithRemoteCard(c)
+
+	}
+	return err
+}
+
+func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
+	tosend := &Message{
+		Name: ResponseVerifyPaired,
+	}
+	if c.pairFinalized {
+		key, err := util.ParseECDSAPubKey(c.remoteCertificate.PubKey)
+		if err != nil {
+			//oopsie
+			return
+		}
+		msg := util.ECDSAPubKeyToHexString(key)[:16]
+		tosend.Payload = []byte(msg)
+	}
+	c.encoder.Encode(tosend)
 }
