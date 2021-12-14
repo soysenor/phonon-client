@@ -46,3 +46,7 @@ func (lcp *localCounterParty) GenerateInvoice() (invoiceData []byte, err error) 
 func (lcp *localCounterParty) ReceiveInvoice(invoiceData []byte) error {
 	return lcp.s.ReceiveInvoice(invoiceData)
 }
+
+func (lcp *localCounterParty) VerifyPaired() error{
+	return nil
+}
