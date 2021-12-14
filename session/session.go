@@ -309,6 +309,7 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 	}
 	cardPair2Data, err := s.CardPair2(cardPairData)
 	if err != nil {
+		log.Debug("PairWithRemoteCard failed at cardPair2. err: ", err)
 		return err
 	}
 	err = remoteCard.FinalizeCardPair(cardPair2Data)
