@@ -239,7 +239,7 @@ func (c *clientSession) disconnectFromCard(msg Message) {
 		Name: MessageDisconnected,
 	}
 	// encode can fail, so it needs to be checked. Not sure how to handle that
-	if c.Counterparty.sender != nil {
+	if c.Counterparty != nil && c.Counterparty.sender != nil {
 		c.Counterparty.sender.Encode(out)
 	}
 	if c.sender != nil {
