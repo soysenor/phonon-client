@@ -153,9 +153,6 @@ func (c *clientSession) ValidateClient() (bool, error) {
 	log.Info("parsed cert: ", c.certificate)
 	//Validate certificate is signed by valid origin
 
-	//TODO: actually validate
-	//Need to do the Identify Card signature validation back and forth with the card to prove it possesses the
-	//private key corresponding to it's certificate
 	//Send Identify Card Challenge
 	challengeNonce, err := c.RequestIdentify()
 	if err != nil {

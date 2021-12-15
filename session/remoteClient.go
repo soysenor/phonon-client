@@ -83,8 +83,9 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 	}
 
 	//First send the client cert to kick off connection validation
+	var crt *cert.CardCertificate
 	if s.Cert == nil {
-		s.Cert, err = s.GetCertificate()
+		crt, err = s.GetCertificate()
 		if err != nil {
 			log.Error("could not fetch certificate from card: ", err)
 			return nil, err
@@ -95,7 +96,7 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 		Name:    model.ResponseCertificate,
 		Payload: s.Cert.Serialize(),
 	}
-	err = client.out.Encode(msg)
+	err = client.out.Encode(crt.Serialize())
 	if err != nil {
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
