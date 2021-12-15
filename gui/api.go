@@ -35,7 +35,6 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	if mock {
 		//Start server with a mock and ignore actual cards
 		err := session.t.GenerateMock()
-		log.Debug("Mock generated")
 		if err != nil {
 			log.Error("unable to generate mock during REST server startup: ", err)
 			return

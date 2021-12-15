@@ -37,14 +37,16 @@ type clientSession struct {
 	Counterparty   *clientSession
 	// the same name that goes in the lookup value of the clientSession map
 }
-type pairing struct {
-	initiator *clientSession
-	responder *clientSession
-	paired    bool
-}
+
+// type pairing struct {
+// 	initiator *clientSession
+// 	responder *clientSession
+// 	paired    bool
+// }
 
 var clientSessions map[string]*clientSession
-var pairings map[string]pairing
+
+// var pairings map[string]pairing
 
 func index(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("hello there"))
@@ -274,7 +276,6 @@ func (c *clientSession) ConnectCard2Card(msg model.Message) {
 			Payload: []byte("Unable to connect. Connection already satisfied"),
 		})
 	}
-
 }
 
 func (c *clientSession) disconnectFromCard(msg model.Message) {
