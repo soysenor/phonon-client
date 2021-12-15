@@ -23,7 +23,8 @@ import (
 
 type RemoteConnection struct {
 	conn                     *h2conn.Conn
-	encoder                  *gob.Encoder
+	out                      *gob.Encoder
+	in                       *gob.Decoder
 	remoteCertificate        *cert.CardCertificate
 	session                  *session.Session
 	identifiedWithServerChan chan bool
@@ -53,12 +54,18 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 		},
 	}
 
-	conn, _, err := d.Connect(context.Background(), url) //url)
+	conn, resp, err := d.Connect(context.Background(), url) //url)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to connect to remote server %e,", err)
 	}
-	remoteConn := &RemoteConnection{
-		conn: conn,
+	if resp.StatusCode != http.StatusOK {
+		log.Error("received bad status from jumpbox. err: ", resp.Status)
+	}
+
+	client := &RemoteConnection{
+		session: s,
+		out:     gob.NewEncoder(conn),
+		in:      gob.NewDecoder(conn),
 		//initialize connection channels
 		connectedToCardChan:      make(chan bool, 1),
 		identifiedWithServerChan: make(chan bool, 1),
@@ -71,15 +78,29 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 		phononAckChan: make(chan bool, 1),
 	}
 
-	go remoteConn.HandleIncoming()
-	remoteConn.encoder = gob.NewEncoder(conn)
-	remoteConn.session = s
-	return remoteConn, nil
+	//First send the client cert to kick off connection validation
+	if s.Cert == nil {
+		s.Cert, err = s.GetCertificate()
+		if err != nil {
+			log.Error("could not fetch certificate from card: ", err)
+			return nil, err
+		}
+	}
+	err = client.out.Encode(s.Cert.Serialize())
+	if err != nil {
+		log.Error("unable to send cert to jump server. err: ", err)
+		return nil, err
+	}
+	//TODO: remove or debug
+	log.Info("got past first encode")
+
+	go client.HandleIncoming()
+
+	return client, nil
 }
 
 // memory leak ohh boy!
 func (c *RemoteConnection) HandleIncoming() {
-	cmdDecoder := gob.NewDecoder(c.conn)
 	messageChan := make(chan (Message))
 
 	go func(msgchan chan Message) {
@@ -87,7 +108,7 @@ func (c *RemoteConnection) HandleIncoming() {
 		for {
 			message := Message{}
 			//todo read raw and decode separately to avoid killing the whole thing on a malformed message
-			err := cmdDecoder.Decode(&message)
+			err := c.in.Decode(&message)
 			if err != nil {
 				log.Info("Error receiving message from connected server")
 				return
@@ -341,7 +362,7 @@ func (c *RemoteConnection) sendMessage(messageName string, messagePayload []byte
 		Payload: messagePayload,
 	}
 
-	c.encoder.Encode(tosend)
+	c.out.Encode(tosend)
 }
 
 func (c *RemoteConnection) VerifyPaired() error {
@@ -350,7 +371,7 @@ func (c *RemoteConnection) VerifyPaired() error {
 		Payload: []byte(""),
 	}
 	c.verifyPairedChan = make(chan string)
-	c.encoder.Encode(tosend)
+	c.out.Encode(tosend)
 
 	var connectedCardID string
 	select {
@@ -382,5 +403,5 @@ func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
 		msg := util.ECDSAPubKeyToHexString(key)[:16]
 		tosend.Payload = []byte(msg)
 	}
-	c.encoder.Encode(tosend)
+	c.out.Encode(tosend)
 }
