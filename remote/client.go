@@ -64,6 +64,7 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 
 	client := &RemoteConnection{
 		session: s,
+		conn:    conn,
 		out:     gob.NewEncoder(conn),
 		in:      gob.NewDecoder(conn),
 		//initialize connection channels
@@ -79,14 +80,15 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 	}
 
 	//First send the client cert to kick off connection validation
+	var crt *cert.CardCertificate
 	if s.Cert == nil {
-		s.Cert, err = s.GetCertificate()
+		crt, err = s.GetCertificate()
 		if err != nil {
 			log.Error("could not fetch certificate from card: ", err)
 			return nil, err
 		}
 	}
-	err = client.out.Encode(s.Cert.Serialize())
+	err = client.out.Encode(crt.Serialize())
 	if err != nil {
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
@@ -321,15 +323,19 @@ func (c *RemoteConnection) ConnectToCard(cardID string) error {
 		}
 	}
 	log.Info("sending requestConnectCard2Card message")
-	c.sendMessage(RequestConnectCard2Card, []byte(cardID))
-	select {
-	case <-time.After(10 * time.Second):
-		log.Error("Connection Timed out Waiting for peer")
-		c.conn.Close()
-		return ErrTimeout
-	case <-c.connectedToCardChan:
-		return nil
+	err := c.out.Encode(Message{Name: RequestConnectCard2Card, Payload: []byte(cardID)})
+	if err != nil {
+		log.Error("error sending Connect2Card request to jumpbox: ", err)
+		return err
 	}
+	// c.sendMessage(RequestConnectCard2Card, []byte(cardID))
+	// select {
+	// case <-time.After(10 * time.Second):
+	// 	log.Error("Connection Timed out Waiting for peer")
+	// 	return ErrTimeout
+	// case <-c.connectedToCardChan:
+	// 	return nil
+	// }
 }
 
 func (c *RemoteConnection) ReceivePhonons(PhononTransfer []byte) error {

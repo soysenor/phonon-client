@@ -94,7 +94,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			log.Error("failed receiving message: ", err)
 			return
 		}
-		log.Debug("received %v message with payload: % X", msg.Name, msg.Payload)
+		log.Debugf("received %v message with payload: % X\n", msg.Name, msg.Payload)
 		err = session.process(msg)
 		if err != nil {
 			log.Errorf("failed to process incoming %v msg. err: %v", msg.Name, err)
@@ -212,18 +212,16 @@ func (c *clientSession) ValidateClient() (bool, error) {
 		log.Error("unable to decode raw client certificate bytes: ", err)
 		return false, err
 	}
-	//TODO: Remove of DEBUG
-	log.Info("past first Decode")
+	//TODO: Remove or DEBUG
+	log.Info("past first Decode:")
 	c.certificate, err = cert.ParseRawCardCertificate(rawCert)
 	if err != nil {
 		log.Infof("failed to parse certificate from client %s\n", err.Error())
 		return false, err
 	}
+	log.Info("parsed cert: ", c.certificate)
 	//Validate certificate is signed by valid origin
 
-	//TODO: actually validate
-	//Need to do the Identify Card signature validation back and forth with the card to prove it possesses the
-	//private key corresponding to it's certificate
 	//Send Identify Card Challenge
 	challengeNonce, err := c.RequestIdentify()
 	if err != nil {
@@ -235,6 +233,7 @@ func (c *clientSession) ValidateClient() (bool, error) {
 	if err != nil {
 		log.Error("failed to receive IDENTIFY_CARD response: ", err)
 	}
+	log.Infof("received sig from identifyResponse: %+v", sig)
 	key, err := util.ParseECDSAPubKey(c.certificate.PubKey)
 	if err != nil {
 		log.Error("Unable to parse pubkey from certificate", err.Error())
@@ -275,24 +274,26 @@ func (c *clientSession) RequestIdentify() (challengeNonce []byte, err error) {
 	return challengeNonce, nil
 }
 
-func (c *clientSession) ReceiveIdentifyResponse() (sig *util.ECDSASignature, err error) {
+func (c *clientSession) ReceiveIdentifyResponse() (*util.ECDSASignature, error) {
 	var identifyResp Message
-	err = c.in.Decode(&identifyResp)
+	var sig util.ECDSASignature
+	err := c.in.Decode(&identifyResp)
 	if err != nil {
 		log.Error("could not receive identify response. err: ", err)
 		return nil, err
 	}
+	log.Infof("received identify response: %+v\n", identifyResp)
 	if identifyResp.Name == ResponseIdentify {
 		buf := bytes.NewBuffer(identifyResp.Payload)
 		decoder := gob.NewDecoder(buf)
-		var sig = &util.ECDSASignature{}
-		err := decoder.Decode(sig)
+		err := decoder.Decode(&sig)
 		if err != nil {
 			log.Error("unable to decode sig. err: ", err)
 			return nil, err
 		}
 	}
-	return sig, nil
+	log.Info("returning sig")
+	return &sig, nil
 }
 
 func (c *clientSession) provideCertificate() {
@@ -321,6 +322,7 @@ func (c *clientSession) ConnectCard2Card(counterpartyID string) {
 		//TODO: implement pairing map
 	} else {
 		log.Info("counterparty not found. shit's not implemented yet")
+		select {}
 	}
 }
 

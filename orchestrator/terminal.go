@@ -75,6 +75,7 @@ func (t *PhononTerminal) ListSessions() []*session.Session {
 	return t.sessions
 }
 
+//TODO: probably rework this to move to session because it's awkward to control it from here via the rest server
 func (t *PhononTerminal) ConnectRemoteSession(session *session.Session, cardURL string) error {
 	u, err := url.Parse(cardURL)
 	if err != nil {
@@ -90,6 +91,7 @@ func (t *PhononTerminal) ConnectRemoteSession(session *session.Session, cardURL 
 	log.Info("successfully connected to remote server. Establishing connection to peer")
 	err = remConn.ConnectToCard(counterpartyID)
 	if err != nil {
+		log.Info("returning error from ConnectRemoteSession")
 		return err
 	}
 	if counterpartyID < session.GetName() {
