@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
-	"net/http"
-
 	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/posener/h2conn"
 	log "github.com/sirupsen/logrus"
+	"net/http"
+	"time"
 )
 
 func StartServer(port string, certfile string, keyfile string) {
@@ -75,6 +76,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		err = session.out.Encode(err.Error())
 		if err != nil {
 			log.Error("failed sending cert validation failure response: ", err)
+			return
 		}
 	}
 	if !valid {
@@ -82,7 +84,9 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		err = session.out.Encode("Certificate invalid")
 		if err != nil {
 			log.Error("failed sending invalid cert response: ", err)
+			return
 		}
+		log.Error("certificate invalid")
 	}
 	log.Info("validated client connection: ", session.Name)
 
@@ -317,13 +321,34 @@ func (c *clientSession) provideCertificate() {
 }
 
 func (c *clientSession) ConnectCard2Card(counterpartyID string) {
-	if counterparty, ok := clientSessions[counterpartyID]; ok {
-		log.Info("counterparty found, connecting %v to %v", c.Name, counterparty)
-		//TODO: implement pairing map
-	} else {
-		log.Info("counterparty not found. shit's not implemented yet")
-		select {}
+	for {
+		if counterparty, ok := clientSessions[counterpartyID]; ok {
+			log.Info("counterparty found, connecting %v to %v", c.Name, counterparty)
+			//generate hash representing pairing
+			//TODO: make this more bulletproof, collisions are semi possible
+			var pairingData []byte
+			var p pairing
+			if c.Name < counterparty.Name {
+				pairingData = append([]byte(c.Name), []byte(counterparty.Name)...)
+				p = pairing{
+					initiator: c,
+					responder: counterparty,
+				}
+			} else {
+				pairingData = append([]byte(counterparty.Name), []byte(c.Name)...)
+				p = pairing{
+					initiator: counterparty,
+					responder: c,
+				}
+			}
+			pairingHash := sha256.Sum256(pairingData)
+			pairingID := string(pairingHash[:])
+			pairings[pairingID] = p
+
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
+
 }
 
 // func (c *clientSession) ConnectCard2Card(msg Message) {
