@@ -103,23 +103,13 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 
 // memory leak ohh boy!
 func (c *RemoteConnection) HandleIncoming() {
-	messageChan := make(chan (Message))
-
-	go func(msgchan chan Message) {
-		defer close(msgchan)
-		for {
-			message := Message{}
-			//todo read raw and decode separately to avoid killing the whole thing on a malformed message
-			err := c.in.Decode(&message)
-			if err != nil {
-				log.Info("Error receiving message from connected server")
-				return
-			}
-			msgchan <- message
+	for {
+		message := Message{}
+		err := c.in.Decode(&message)
+		if err != nil {
+			log.Info("Error receiving message from connected server")
+			return
 		}
-	}(messageChan)
-
-	for message := range messageChan {
 		c.process(message)
 	}
 }
