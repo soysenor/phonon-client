@@ -84,6 +84,7 @@ func (t *PhononTerminal) ConnectRemoteSession(session *session.Session, cardURL 
 	pathSeparated := strings.Split(u.Path, "/")
 	counterpartyID := pathSeparated[len(pathSeparated)-1]
 	log.Info("connecting")
+	//guard
 	remConn, err := remote.Connect(session, fmt.Sprintf("https://%s/phonon", u.Host), true)
 	if err != nil {
 		return fmt.Errorf("unable to connect to remote session: %s", err.Error())

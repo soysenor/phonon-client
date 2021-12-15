@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"github.com/GridPlus/phonon-client/cert"
@@ -12,7 +11,6 @@ import (
 	"github.com/posener/h2conn"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"time"
 )
 
 func StartServer(port string, certfile string, keyfile string) {
@@ -37,14 +35,16 @@ type clientSession struct {
 	Counterparty   *clientSession
 	// the same name that goes in the lookup value of the clientSession map
 }
-type pairing struct {
-	initiator *clientSession
-	responder *clientSession
-	paired    bool
-}
+
+// type pairing struct {
+// 	initiator *clientSession
+// 	responder *clientSession
+// 	paired    bool
+// }
 
 var clientSessions map[string]*clientSession
-var pairings map[string]pairing
+
+// var pairings map[string]pairing
 
 func index(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("hello there"))
@@ -110,7 +110,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 func (c *clientSession) process(msg Message) error {
 	switch msg.Name {
 	case RequestConnectCard2Card:
-		c.ConnectCard2Card(string(msg.Payload))
+		c.ConnectCard2Card(msg)
 	case RequestDisconnectFromCard:
 		c.disconnectFromCard(msg)
 	case RequestEndSession:
@@ -320,65 +320,66 @@ func (c *clientSession) provideCertificate() {
 	return
 }
 
-func (c *clientSession) ConnectCard2Card(counterpartyID string) {
-	for {
-		if counterparty, ok := clientSessions[counterpartyID]; ok {
-			log.Info("counterparty found, connecting %v to %v", c.Name, counterparty)
-			//generate hash representing pairing
-			//TODO: make this more bulletproof, collisions are semi possible
-			var pairingData []byte
-			var p pairing
-			if c.Name < counterparty.Name {
-				pairingData = append([]byte(c.Name), []byte(counterparty.Name)...)
-				p = pairing{
-					initiator: c,
-					responder: counterparty,
-				}
-			} else {
-				pairingData = append([]byte(counterparty.Name), []byte(c.Name)...)
-				p = pairing{
-					initiator: counterparty,
-					responder: c,
-				}
-			}
-			pairingHash := sha256.Sum256(pairingData)
-			pairingID := string(pairingHash[:])
-			pairings[pairingID] = p
+//Start of alternate implementation using pairing map
+// func (c *clientSession) ConnectCard2Card(counterpartyID string) {
+// 	for {
+// 		if counterparty, ok := clientSessions[counterpartyID]; ok {
+// 			log.Info("counterparty found, connecting %v to %v", c.Name, counterparty)
+// 			//generate hash representing pairing
+// 			//TODO: make this more bulletproof, collisions are semi possible
+// 			var pairingData []byte
+// 			var p pairing
+// 			if c.Name < counterparty.Name {
+// 				pairingData = append([]byte(c.Name), []byte(counterparty.Name)...)
+// 				p = pairing{
+// 					initiator: c,
+// 					responder: counterparty,
+// 				}
+// 			} else {
+// 				pairingData = append([]byte(counterparty.Name), []byte(c.Name)...)
+// 				p = pairing{
+// 					initiator: counterparty,
+// 					responder: c,
+// 				}
+// 			}
+// 			pairingHash := sha256.Sum256(pairingData)
+// 			pairingID := string(pairingHash[:])
+// 			pairings[pairingID] = p
 
-		}
-		time.Sleep(250 * time.Millisecond)
-	}
-
-}
-
-// func (c *clientSession) ConnectCard2Card(msg Message) {
-// 	log.Infof("attempting to connect card %s to card %s\n", c.Name, string(msg.Payload))
-// 	counterparty, ok := clientSessions[string(msg.Payload)]
-// 	if !ok {
-// 		c.out.Encode(Message{
-// 			Name:    MessageError,
-// 			Payload: []byte("No connected card"),
-// 		})
-// 		log.Error("No connected session:", string(msg.Payload))
-// 		return
-// 	} else if counterparty.Counterparty == nil && c.Counterparty == nil {
-// 		counterparty.Counterparty = c
-// 		c.Counterparty = counterparty
-// 		c.out.Encode(Message{
-// 			Name: MessageConnectedToCard,
-// 		})
-// 		c.Counterparty.out.Encode(Message{
-// 			Name: MessageConnectedToCard,
-// 		})
-// 	} else if c.Counterparty == counterparty && counterparty.Counterparty == c {
-// 		//do nothing
-// 	} else {
-// 		c.out.Encode(Message{
-// 			Name:    MessageError,
-// 			Payload: []byte("Unable to connect. Connection already satisfied"),
-// 		})
+// 		}
+// 		time.Sleep(250 * time.Millisecond)
 // 	}
+
 // }
+
+func (c *clientSession) ConnectCard2Card(msg Message) {
+	log.Infof("attempting to connect card %s to card %s\n", c.Name, string(msg.Payload))
+	counterparty, ok := clientSessions[string(msg.Payload)]
+	if !ok {
+		c.out.Encode(Message{
+			Name:    MessageError,
+			Payload: []byte("No connected card"),
+		})
+		log.Error("No connected session:", string(msg.Payload))
+		return
+	} else if counterparty.Counterparty == nil && c.Counterparty == nil {
+		counterparty.Counterparty = c
+		c.Counterparty = counterparty
+		c.out.Encode(Message{
+			Name: MessageConnectedToCard,
+		})
+		c.Counterparty.out.Encode(Message{
+			Name: MessageConnectedToCard,
+		})
+	} else if c.Counterparty == counterparty && counterparty.Counterparty == c {
+		//do nothing
+	} else {
+		c.out.Encode(Message{
+			Name:    MessageError,
+			Payload: []byte("Unable to connect. Connection already satisfied"),
+		})
+	}
+}
 
 func (c *clientSession) disconnectFromCard(msg Message) {
 	out := Message{

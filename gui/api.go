@@ -27,8 +27,20 @@ var swagger embed.FS
 
 var t orchestrator.PhononTerminal
 
-func Server(port string, certFile string, keyFile string) {
-	t.RefreshSessions()
+func Server(port string, certFile string, keyFile string, mock bool) {
+	if mock {
+		//Start server with a mock and ignore actual cards
+		err := t.GenerateMock()
+		if err != nil {
+			log.Error("unable to generate mock during REST server startup: ", err)
+			return
+		}
+	} else {
+		_, err := t.RefreshSessions()
+		if err != nil {
+			log.Error("unable to refresh card sessions during REST server startup: ", err)
+		}
+	}
 	r := mux.NewRouter()
 
 	c := cors.New(cors.Options{
