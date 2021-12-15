@@ -80,15 +80,15 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 	}
 
 	//First send the client cert to kick off connection validation
-	var crt *cert.CardCertificate
 	if s.Cert == nil {
-		crt, err = s.GetCertificate()
+		s.Cert, err = s.GetCertificate()
 		if err != nil {
 			log.Error("could not fetch certificate from card: ", err)
 			return nil, err
 		}
 	}
-	err = client.out.Encode(crt.Serialize())
+	log.Info("client has crt: ", s.Cert)
+	err = client.out.Encode(s.Cert.Serialize())
 	if err != nil {
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
@@ -328,6 +328,12 @@ func (c *RemoteConnection) ConnectToCard(cardID string) error {
 		log.Error("error sending Connect2Card request to jumpbox: ", err)
 		return err
 	}
+	err = c.out.Encode(Message{Name: RequestConnectCard2Card, Payload: []byte(cardID)})
+	if err != nil {
+		log.Error("error sending RequestConnectCard2Card: ", err)
+		return err
+	}
+	return nil
 	// c.sendMessage(RequestConnectCard2Card, []byte(cardID))
 	// select {
 	// case <-time.After(10 * time.Second):
