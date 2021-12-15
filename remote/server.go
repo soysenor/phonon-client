@@ -37,8 +37,14 @@ type clientSession struct {
 	Counterparty   *clientSession
 	// the same name that goes in the lookup value of the clientSession map
 }
+type pairing struct {
+	initiator *clientSession
+	responder *clientSession
+	paired    bool
+}
 
 var clientSessions map[string]*clientSession
+var pairings map[string]pairing
 
 func index(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("hello there"))
@@ -147,6 +153,9 @@ func (c *clientSession) ValidateClient() (bool, error) {
 	log.Info("parsed cert: ", c.certificate)
 	//Validate certificate is signed by valid origin
 
+	//TODO: actually validate
+	//Need to do the Identify Card signature validation back and forth with the card to prove it possesses the
+	//private key corresponding to it's certificate
 	//Send Identify Card Challenge
 	challengeNonce, err := c.RequestIdentify()
 	if err != nil {
@@ -310,6 +319,7 @@ func (c *clientSession) passthrough(msg model.Message) {
 	} else {
 		c.Counterparty.out.Encode(msg)
 	}
+	return
 }
 
 func (c *clientSession) RequestSendPhonon(msg model.Message) {

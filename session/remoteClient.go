@@ -443,7 +443,7 @@ func (c *RemoteConnection) VerifyPaired() error {
 		Payload: []byte(""),
 	}
 	c.verifyPairedChan = make(chan string)
-	c.encoder.Encode(tosend)
+	c.out.Encode(tosend)
 
 	var connectedCardID string
 	select {
@@ -475,5 +475,5 @@ func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
 		msg := util.ECDSAPubKeyToHexString(key)[:16]
 		tosend.Payload = []byte(msg)
 	}
-	c.encoder.Encode(tosend)
+	c.out.Encode(tosend)
 }
