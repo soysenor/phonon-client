@@ -274,6 +274,7 @@ func (c *clientSession) ConnectCard2Card(msg model.Message) {
 			Payload: []byte("Unable to connect. Connection already satisfied"),
 		})
 	}
+
 }
 
 func (c *clientSession) disconnectFromCard(msg model.Message) {

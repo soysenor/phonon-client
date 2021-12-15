@@ -83,9 +83,8 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 	}
 
 	//First send the client cert to kick off connection validation
-	var crt *cert.CardCertificate
 	if s.Cert == nil {
-		crt, err = s.GetCertificate()
+		s.Cert, err = s.GetCertificate()
 		if err != nil {
 			log.Error("could not fetch certificate from card: ", err)
 			return nil, err
@@ -96,7 +95,7 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 		Name:    model.ResponseCertificate,
 		Payload: s.Cert.Serialize(),
 	}
-	err = client.out.Encode(crt.Serialize())
+	err = client.out.Encode(msg)
 	if err != nil {
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
@@ -438,43 +437,3 @@ func (c *RemoteConnection) disconnectFromCard() {
 	c.session.SetPaired(false)
 }
 
-func (c *RemoteConnection) VerifyPaired() error {
-	tosend := &Message{
-		Name:    RequestVerifyPaired,
-		Payload: []byte(""),
-	}
-	c.verifyPairedChan = make(chan string)
-	c.out.Encode(tosend)
-
-	var connectedCardID string
-	select {
-	case connectedCardID = <-c.verifyPairedChan:
-	case <-time.After(10 * time.Second):
-		return fmt.Errorf("counterparty card not paired to this card")
-	}
-	c.verifyPairedChan = nil
-
-	var err error
-	if connectedCardID != c.session.GetName() {
-		//remote isn't paired to this card
-		err = c.session.PairWithRemoteCard(c)
-
-	}
-	return err
-}
-
-func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
-	tosend := &Message{
-		Name: ResponseVerifyPaired,
-	}
-	if c.pairFinalized {
-		key, err := util.ParseECDSAPubKey(c.remoteCertificate.PubKey)
-		if err != nil {
-			//oopsie
-			return
-		}
-		msg := util.ECDSAPubKeyToHexString(key)[:16]
-		tosend.Payload = []byte(msg)
-	}
-	c.out.Encode(tosend)
-}
