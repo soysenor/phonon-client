@@ -6,11 +6,12 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"encoding/json"
+	"net/http"
+
 	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/posener/h2conn"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 func StartServer(port string, certfile string, keyfile string) {
