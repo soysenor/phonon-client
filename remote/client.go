@@ -14,6 +14,7 @@ import (
 
 	"github.com/GridPlus/phonon-client/card"
 	"github.com/GridPlus/phonon-client/cert"
+	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/session"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/posener/h2conn"
@@ -40,6 +41,7 @@ type RemoteConnection struct {
 	remoteIdentityChan       chan []byte
 	cardPair1DataChan        chan []byte
 	finalizeCardPairDataChan chan []byte
+	pairingStatus            model.RemotePairingStatus
 
 	phononAckChan chan bool
 }
@@ -77,6 +79,8 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 		finalizeCardPairDataChan: make(chan []byte, 1),
 
 		phononAckChan: make(chan bool, 1),
+
+		pairingStatus: model.StatusConnectedToBridge,
 	}
 
 	//First send the client cert to kick off connection validation
@@ -101,17 +105,16 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 	return client, nil
 }
 
-// memory leak ohh boy!
 func (c *RemoteConnection) HandleIncoming() {
-	for {
-		message := Message{}
-		err := c.in.Decode(&message)
-		if err != nil {
-			log.Info("Error receiving message from connected server")
-			return
-		}
+	message := Message{}
+	err := c.in.Decode(&message)
+	for err == nil {
 		c.process(message)
+		message := Message{}
+		err = c.in.Decode(&message)
 	}
+	log.Printf("Error decoding message: %s", err.Error())
+	c.pairingStatus = model.StatusUnconnected
 }
 
 func (c *RemoteConnection) process(msg Message) {
@@ -324,14 +327,6 @@ func (c *RemoteConnection) ConnectToCard(cardID string) error {
 		return err
 	}
 	return nil
-	// c.sendMessage(RequestConnectCard2Card, []byte(cardID))
-	// select {
-	// case <-time.After(10 * time.Second):
-	// 	log.Error("Connection Timed out Waiting for peer")
-	// 	return ErrTimeout
-	// case <-c.connectedToCardChan:
-	// 	return nil
-	// }
 }
 
 func (c *RemoteConnection) ReceivePhonons(PhononTransfer []byte) error {
@@ -406,4 +401,8 @@ func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
 		tosend.Payload = []byte(msg)
 	}
 	c.out.Encode(tosend)
+}
+
+func (c *RemoteConnection) PairingStatus() model.RemotePairingStatus {
+	return c.pairingStatus
 }
