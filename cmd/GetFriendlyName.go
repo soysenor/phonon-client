@@ -18,21 +18,27 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/GridPlus/phonon-client/card"
+	"github.com/GridPlus/phonon-client/orchestrator"
 	"github.com/spf13/cobra"
 )
 
-// getFriendlyNameCmd represents the GetFriendlyName command
-var getFriendlyNameCmd = &cobra.Command{
-	Use:   "getFriendlyName",
-	Short: "retrieve the card's previously set Friendly Name",
+// GetFriendlyNameCmd represents the GetFriendlyName command
+var GetFriendlyNameCmd = &cobra.Command{
+	Use:   "GetFriendlyName",
+	Short: "A brief description of your command",
+	Long: `A longer description that spans multiple lines and likely contains examples
+and usage of using your command. For example:
+
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		getFriendlyName()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(getFriendlyNameCmd)
+	rootCmd.AddCommand(GetFriendlyNameCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -46,7 +52,7 @@ func init() {
 }
 
 func getFriendlyName() {
-	cs, err := card.QuickSecureConnection(readerIndex, staticPairing)
+	cs, err := orchestrator.QuickSecureConnection(readerIndex)
 	if err != nil {
 		fmt.Println(err)
 		return

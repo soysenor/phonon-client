@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/GridPlus/phonon-client/card"
+	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/orchestrator"
 	"github.com/GridPlus/phonon-client/session"
@@ -43,6 +44,15 @@ func init() {
 
 	sendPhononsCmd.Flags().IntVarP(&receiverReaderIndex, "receiver-reader-index", "r", 0, "pass the reader index to use for the receiver card")
 	sendPhononsCmd.Flags().IntVarP(&senderReaderIndex, "sender-reader-index", "s", 0, "pass the reader index to use for the sender card")
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// sendPhononsCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// sendPhononsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 func sendPhonons() {
@@ -50,13 +60,15 @@ func sendPhonons() {
 	var senderCard model.PhononCard
 	var err error
 	if useMockSender {
-		senderCard, err = card.NewMockCard(true, false)
+		senderCard, err = card.NewMockCard()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		senderCard.InstallCertificate(cert.SignWithDemoKey)
+		senderCard.Init("111111")
 	} else {
-		senderCard, err = card.QuickSecureConnection(senderReaderIndex, staticPairing)
+		senderCard, err = orchestrator.Connect(senderReaderIndex)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -98,13 +110,15 @@ func sendPhonons() {
 	}
 	var receiverCard model.PhononCard
 	if useMockReceiver {
-		receiverCard, err = card.NewMockCard(true, false)
+		receiverCard, err = card.NewMockCard()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		receiverCard.InstallCertificate(cert.SignWithDemoKey)
+		receiverCard.Init("111111")
 	} else {
-		receiverCard, err = card.QuickSecureConnection(receiverReaderIndex, staticPairing)
+		receiverCard, err = orchestrator.Connect(receiverReaderIndex)
 		if err != nil {
 			fmt.Println(err)
 			return

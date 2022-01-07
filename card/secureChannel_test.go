@@ -94,13 +94,13 @@ func TestSecureChannelBackAndForth(t *testing.T) {
 }
 
 func TestMockCardPairing(t *testing.T) {
-	senderCard, err := NewMockCard(false, false)
+	senderCard, err := NewMockCard()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	senderCard.InstallCertificate(cert.SignWithDemoKey)
-	receiverCard, err := NewMockCard(false, false)
+	receiverCard, err := NewMockCard()
 	if err != nil {
 		t.Error(err)
 		return

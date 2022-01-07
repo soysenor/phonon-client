@@ -6,7 +6,7 @@ import (
 )
 
 func TestCardPair(t *testing.T) {
-	senderCard, err := NewMockCard(false, false)
+	senderCard, err := NewMockCard()
 	if err != nil {
 		t.Error(err)
 	}
@@ -16,7 +16,7 @@ func TestCardPair(t *testing.T) {
 		t.Error(err)
 	}
 
-	receiverCard, err := NewMockCard(false, false)
+	receiverCard, err := NewMockCard()
 	if err != nil {
 		t.Error(err)
 	}

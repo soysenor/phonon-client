@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/GridPlus/phonon-client/card"
+	"github.com/GridPlus/phonon-client/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +29,7 @@ var selectCmd = &cobra.Command{
 	Short: "Test SELECT command",
 	Long:  `Test SELECT command`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cs, err := card.Connect(readerIndex)
+		cs, err := orchestrator.Connect(readerIndex)
 		if err != nil {
 			return
 		}
@@ -37,10 +38,19 @@ var selectCmd = &cobra.Command{
 			fmt.Println("could not select applet", err)
 			return
 		}
-		fmt.Println("select ran succesfully")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(selectCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// selectCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// selectCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

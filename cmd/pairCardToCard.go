@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/GridPlus/phonon-client/card"
+	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/orchestrator"
 	"github.com/GridPlus/phonon-client/session"
@@ -42,6 +43,7 @@ var (
 	useMockSender       bool
 	senderReaderIndex   int
 	receiverReaderIndex int
+	staticPairing       bool
 )
 
 func init() {
@@ -52,6 +54,8 @@ func init() {
 
 	pairCardToCardCmd.Flags().IntVarP(&receiverReaderIndex, "receiver-reader-index", "r", 0, "pass the reader index to use for the receiver card")
 	pairCardToCardCmd.Flags().IntVarP(&senderReaderIndex, "sender-reader-index", "s", 0, "pass the reader index to use for the sender card")
+
+	pairCardToCardCmd.Flags().BoolVarP(&staticPairing, "static", "t", false, "Use statically generated insecure keys and salts to generate deterministic pairing payloads")
 
 	// Here you will define your flags and configuration settings.
 
@@ -70,18 +74,37 @@ func PairCardToCard() {
 	var sender *session.Session
 	var err error
 	if useMockSender {
-		senderCard, err := card.NewMockCard(true, staticPairing)
-		if err != nil {
-			fmt.Println(err)
-			return
+		if staticPairing {
+			senderCard, err = card.NewStaticMockCard()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		} else {
+			senderCard, err = card.NewMockCard()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 		}
+
 		sender, err = session.NewSession(senderCard)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		err = senderCard.InstallCertificate(cert.SignWithDemoKey)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		err = sender.Init("111111")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	} else {
-		senderCard, err = card.QuickSecureConnection(senderReaderIndex, staticPairing)
+		senderCard, err = orchestrator.Connect(senderReaderIndex)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -101,10 +124,19 @@ func PairCardToCard() {
 	var receiverCard model.PhononCard
 	var receiverSession *session.Session
 	if useMockReceiver {
-		receiverCard, err = card.NewMockCard(true, staticPairing)
-		if err != nil {
-			fmt.Println(err)
-			return
+		if staticPairing {
+			fmt.Println("cmd static pairing")
+			receiverCard, err = card.NewStaticMockCard()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		} else {
+			receiverCard, err = card.NewMockCard()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 		}
 
 		fmt.Println("opening receiver session")
@@ -113,9 +145,19 @@ func PairCardToCard() {
 			fmt.Println(err)
 			return
 		}
+		err = receiverCard.InstallCertificate(cert.SignWithDemoKey)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		err = receiverSession.Init("111111")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	} else {
 		fmt.Println("opening physical connection with receiver card")
-		receiverCard, err = card.QuickSecureConnection(receiverReaderIndex, staticPairing)
+		receiverCard, err = orchestrator.Connect(receiverReaderIndex)
 		if err != nil {
 			fmt.Println(err)
 			return

@@ -17,53 +17,41 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
+	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/orchestrator"
 	"github.com/spf13/cobra"
 )
 
-// destroyPhononCmd represents the destroyPhonon command
-var destroyPhononCmd = &cobra.Command{
-	Use:   "destroyPhonon [keyIndex]",
-	Short: "Destroy a phonon by keyIndex",
-	Long: `Destroy a phonon by it's keyIndex, returning the private key.
-
-This allows one to utilize the phonon's private key outside of the phonon system,
-but the phonon will no longer be retrievable via the card.`,
-	Args: cobra.ExactArgs(1),
+// transactionAckCmd represents the transactionAck command
+var transactionAckCmd = &cobra.Command{
+	Use:   "transactionAck",
+	Short: "Acknowledge a phonon transaction has been completed.",
+	Long: `Acknowledge a phonon transaction has been completed so that
+	the card can clean up intermediate data that may have been held during
+	the transaction session`,
 	Run: func(cmd *cobra.Command, args []string) {
-		keyIndex, err := strconv.ParseUint(args[0], 10, 16)
-		if err != nil {
-			fmt.Println("couldn't parse keyIndex value as uint16: ", err)
-			return
-		}
-		destroyPhonon(uint16(keyIndex))
+		transactionAck()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(destroyPhononCmd)
+	rootCmd.AddCommand(transactionAckCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// destroyPhononCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// transactionAckCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// destroyPhononCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// transactionAckCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func destroyPhonon(keyIndex uint16) {
+//Creates a phonon, sends it, and confirms the transaction for testing purposes
+func transactionAck() {
 	cs, err := orchestrator.QuickSecureConnection(readerIndex)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	err = cs.OpenSecureConnection()
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -73,11 +61,25 @@ func destroyPhonon(keyIndex uint16) {
 		fmt.Println(err)
 		return
 	}
-
-	privKey, err := cs.DestroyPhonon(keyIndex)
+	keyIndex, _, err := cs.CreatePhonon(model.Secp256k1)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
-	fmt.Println("destroyed phonon and exported privKey: ")
-	fmt.Printf("D: % X", privKey.D)
+	fmt.Println("created phonon with keyIndex: ", keyIndex)
+	err = cs.SetDescriptor(&model.Phonon{KeyIndex: keyIndex, CurrencyType: model.Bitcoin, Denomination: model.Denomination{Base: 1, Exponent: 0}})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	_, err = cs.SendPhonons([]uint16{keyIndex}, false)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = cs.TransactionAck([]uint16{keyIndex})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }

@@ -139,6 +139,7 @@ func (c *clientSession) process(msg Message) {
 				return
 			}
 			c.validated = true
+			//todo: get the short name the same way it works in the repl
 			hexString := util.ECDSAPubKeyToHexString(key)
 			name := hexString[:16]
 			c.Name = name

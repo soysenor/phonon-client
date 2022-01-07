@@ -16,55 +16,55 @@ limitations under the License.
 package cmd
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/orchestrator"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-// openSecureChannelCmd represents the openSecureChannel command
-var openSecureChannelCmd = &cobra.Command{
-	Use:   "openSecureChannel",
-	Short: "Tests opening a secure channel",
-	Long:  `Tests opening a secure channel between terminal and card`,
+// setReceiveListCmd represents the setReceiveList command
+var setReceiveListCmd = &cobra.Command{
+	Use:   "setReceiveList",
+	Short: "low level test of SET_RECV_LIST command",
+	Long:  `low level test of SET_RECV_LIST command`,
 	Run: func(cmd *cobra.Command, args []string) {
-		openSecureChannel()
+		setReceiveList()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(openSecureChannelCmd)
+	rootCmd.AddCommand(setReceiveListCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// openSecureChannelCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// setReceiveListCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// openSecureChannelCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// setReceiveListCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func openSecureChannel() {
-	cs, err := orchestrator.Connect(readerIndex)
+func setReceiveList() {
+	cs, err := orchestrator.QuickSecureConnection(readerIndex)
 	if err != nil {
-		fmt.Println("could not connect to card: ", err)
-	}
-	_, _, _, err = cs.Select()
-	if err != nil {
-		fmt.Println("could not select phonon applet: ", err)
+		fmt.Println(err)
 		return
 	}
-	_, err = cs.Pair()
+
+	//Create a phonon, get it's pubKey, and then set it in the RECV_LIST for testing
+	_, pubKey, err := cs.CreatePhonon(model.Secp256k1)
 	if err != nil {
-		fmt.Println("could not pair: ", err)
+		fmt.Println(err)
 		return
 	}
-	err = cs.OpenSecureChannel()
+	err = cs.SetReceiveList([]*ecdsa.PublicKey{pubKey})
 	if err != nil {
-		fmt.Println("could not open secure channel: ", err)
+		log.Error("error testing SetReceiveList: ", err)
 		return
 	}
-	fmt.Println("secure channel opened without error")
 }

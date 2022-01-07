@@ -22,49 +22,57 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// openSecureChannelCmd represents the openSecureChannel command
-var openSecureChannelCmd = &cobra.Command{
-	Use:   "openSecureChannel",
-	Short: "Tests opening a secure channel",
-	Long:  `Tests opening a secure channel between terminal and card`,
+// receivePhononsCmd represents the receivePhonons command
+var receivePhononsCmd = &cobra.Command{
+	Use:   "receivePhonons",
+	Short: "Test command to send sample phonons and receive them",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		openSecureChannel()
+		receivePhonons()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(openSecureChannelCmd)
+	rootCmd.AddCommand(receivePhononsCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// openSecureChannelCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// receivePhononsCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// openSecureChannelCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// receivePhononsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func openSecureChannel() {
+func receivePhonons() {
 	cs, err := orchestrator.Connect(readerIndex)
 	if err != nil {
-		fmt.Println("could not connect to card: ", err)
-	}
-	_, _, _, err = cs.Select()
-	if err != nil {
-		fmt.Println("could not select phonon applet: ", err)
 		return
 	}
-	_, err = cs.Pair()
+	cs.Select()
+
+	//Have the card SendPhonons and receive them back for testing
+	testKeyIndices := []uint16{1, 2, 3, 4, 5, 6, 7, 8}
+	transferPackets, err := cs.SendPhonons(testKeyIndices, false)
 	if err != nil {
-		fmt.Println("could not pair: ", err)
+		fmt.Print("error in SEND_PHONONS command: ", err)
+	} else {
+		fmt.Printf("received SEND_PHONONS transfer packet: % X\n", transferPackets)
+	}
+	err = cs.ReceivePhonons(transferPackets)
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
-	err = cs.OpenSecureChannel()
-	if err != nil {
-		fmt.Println("could not open secure channel: ", err)
-		return
-	}
-	fmt.Println("secure channel opened without error")
+	fmt.Println("received phonon packets")
+	// for i, packet := range transferPackets {
+	// 	err = cs.ReceivePhonons(transferPackets)
+	// 	if err != nil {
+	// 		fmt.Println("error receiving phonons: ", err)
+	// 	} else {
+	// 		fmt.Printf("card received phonon packet number %v\n", i)
+	// 	}
+	// }
 }

@@ -9,7 +9,7 @@ import (
 
 func TestCardToCardPair(t *testing.T) {
 	//Test with real sender and mock receiver card
-	cs, err := card.Connect(0)
+	cs, err := Connect(0)
 	if err != nil {
 		t.Error(err)
 		return
@@ -19,7 +19,7 @@ func TestCardToCardPair(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	mockCard, err := card.NewMockCard(true, false)
+	mockCard, err := card.NewInitializedMockCard()
 	if err != nil {
 		t.Error(err)
 		return
