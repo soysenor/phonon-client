@@ -436,4 +436,3 @@ func (c *RemoteConnection) disconnectFromCard() {
 	c.pairingStatus = model.StatusConnectedToBridge
 	c.session.SetPaired(false)
 }
-
