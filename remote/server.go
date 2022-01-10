@@ -118,7 +118,7 @@ func (c *clientSession) process(msg Message) error {
 		c.endSession(msg)
 	case RequestNoOp:
 		c.noop(msg)
-	case ResponseIdentify, RequestCardPair1, ResponseCardPair1, RequestCardPair2, ResponseCardPair2, RequestFinalizeCardPair, ResponseFinalizeCardPair, RequestReceivePhonon, MessagePhononAck, RequestVerifyPaired, ResponseVerifyPaired:
+	case RequestIdentify, ResponseIdentify, RequestCardPair1, ResponseCardPair1, RequestCardPair2, ResponseCardPair2, RequestFinalizeCardPair, ResponseFinalizeCardPair, RequestReceivePhonon, MessagePhononAck, RequestVerifyPaired, ResponseVerifyPaired:
 		c.passthrough(msg)
 	case RequestCertificate:
 		c.provideCertificate()
@@ -126,86 +126,6 @@ func (c *clientSession) process(msg Message) error {
 	//TODO: provide actual errors, or ensure all the cases handle errors themselves
 	return nil
 }
-
-// func (c *clientSession) process(msg Message) {
-// 	log.Infof("processing message: %s\nPayload: %+v\nPayloadString: %s\n", msg.Name, msg.Payload, string(msg.Payload))
-// 	// if the client hasn't identified itself with the server, ignore what they are doing until they provide the certificate, and keep asking for it.
-// 	if c.certificate == nil {
-// 		// if they are providing the certificate, accept it, and then generate a challenge, add it to the challenge test, and continue executing
-// 		if msg.Name == ResponseCertificate {
-// 			certParsed, err := cert.ParseRawCardCertificate(msg.Payload)
-// 			if err != nil {
-// 				log.Infof("failed to parse certificate from client %s\n", err.Error())
-// 				return
-// 			}
-// 			c.certificate = &certParsed
-// 		} else {
-// 			//ask for the certificate again
-// 			c.out.Encode(Message{
-// 				Name: RequestCertificate,
-// 			})
-// 			return
-// 		}
-// 	}
-
-// if !c.validated {
-// 	if msg.Name == ResponseIdentify {
-// 		buf := bytes.NewBuffer(msg.Payload)
-// 		decoder := gob.NewDecoder(buf)
-// 		var sig = &util.ECDSASignature{}
-// 		err := decoder.Decode(sig)
-// 		if err != nil {
-// 			log.Error("Unable to parse IdentifyCardResponse", err.Error())
-// 			return
-// 		}
-// 		key, err := util.ParseECDSAPubKey(c.certificate.PubKey)
-// 		if err != nil {
-// 			log.Error("Unable to parse pubkey from certificate", err.Error())
-// 			return
-// 		}
-// 		if !ecdsa.Verify(key, c.challengeNonce[:], sig.R, sig.S) {
-// 			log.Error("unable to verify card challenge")
-// 			return
-// 		}
-// 		c.validated = true
-// 		//todo: get the short name the same way it works in the repl
-// 		hexString := util.ECDSAPubKeyToHexString(key)
-// 		name := hexString[:16]
-// 		c.Name = name
-// 		clientSessions[name] = c
-// 		c.out.Encode(Message{
-// 			Name:    MessageIdentifiedWithServer,
-// 			Payload: []byte(name),
-// 		})
-// 		return
-// 	} else {
-// 		if c.challengeNonce == [32]byte{} {
-// 			_, err := rand.Reader.Read(c.challengeNonce[:])
-// 			if err != nil {
-// 				log.Errorf("Error generating challenge: %s", err.Error())
-// 				return
-// 			}
-// 		}
-// 		c.RequestIdentify()
-// 		return
-// 	}
-// 		// if the challenge text has been set, ignore what they want and send it again
-// 	}
-// 	switch msg.Name {
-// 	case RequestConnectCard2Card:
-// 		c.ConnectCard2Card(msg)
-// 	case RequestDisconnectFromCard:
-// 		c.disconnectFromCard(msg)
-// 	case RequestEndSession:
-// 		c.endSession(msg)
-// 	case RequestNoOp:
-// 		c.noop(msg)
-// 	case ResponseIdentify, RequestCardPair1, ResponseCardPair1, RequestCardPair2, ResponseCardPair2, RequestFinalizeCardPair, ResponseFinalizeCardPair, RequestReceivePhonon, MessagePhononAck, RequestVerifyPaired, ResponseVerifyPaired:
-// 		c.passthrough(msg)
-// 	case RequestCertificate:
-// 		c.provideCertificate()
-// 	}
-// }
 
 func (c *clientSession) ValidateClient() (bool, error) {
 	log.Info("validating client connection")
@@ -384,7 +304,7 @@ func (c *clientSession) ConnectCard2Card(msg Message) {
 
 func (c *clientSession) disconnectFromCard(msg Message) {
 	out := Message{
-		Name: MessageDisconnected,
+		Name: RequestDisconnectFromCard,
 	}
 	// encode can fail, so it needs to be checked. Not sure how to handle that
 	if c.Counterparty != nil && c.Counterparty.out != nil {

@@ -149,6 +149,10 @@ func (c *RemoteConnection) process(msg Message) {
 		c.processReceivePhonons(msg)
 	case RequestVerifyPaired:
 		c.processRequestVerifyPaired(msg)
+	case MessageDisconnected:
+		c.disconnect()
+	case RequestDisconnectFromCard:
+		c.disconnectFromCard()
 	case ResponseVerifyPaired:
 		{
 			if c.verifyPairedChan != nil {
@@ -405,4 +409,14 @@ func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
 
 func (c *RemoteConnection) PairingStatus() model.RemotePairingStatus {
 	return c.pairingStatus
+}
+
+func (c *RemoteConnection) disconnect() {
+	c.pairingStatus = model.StatusUnconnected
+	c.session.SetPaired(false)
+}
+
+func (c *RemoteConnection) disconnectFromCard() {
+	c.pairingStatus = model.StatusConnectedToBridge
+	c.session.SetPaired(false)
 }
