@@ -133,7 +133,7 @@ func (c *RemoteConnection) process(msg Message) {
 		c.identifiedWithServerChan <- true
 		c.identifiedWithServer = true
 	case MessageConnectedToCard:
-		c.connectedToCardChan <- true
+		c.pairingStatus = model.StatusConnectedToCard
 	// Card pairing requests and responses
 	case RequestCardPair1:
 		c.processCardPair1(msg)
@@ -203,15 +203,25 @@ func (c *RemoteConnection) processIdentify(msg Message) {
 }
 
 func (c *RemoteConnection) processCardPair1(msg Message) {
+	if c.pairingStatus != model.StatusConnectedToCard {
+		log.Error("Card either not connected to a card or already paired")
+		return
+	}
 	cardPairData, err := c.session.CardPair(msg.Payload)
 	if err != nil {
 		log.Error("error with card pair 1", err.Error())
+		return
 	}
+	c.pairingStatus = model.StatusCardPair1Complete
 	c.sendMessage(ResponseCardPair1, cardPairData)
 
 }
 
 func (c *RemoteConnection) processFinalizeCardPair(msg Message) {
+	if c.pairingStatus != model.StatusCardPair1Complete {
+		log.Error("Unable to pair. Step one not complete")
+		return
+	}
 	err := c.session.FinalizeCardPair(msg.Payload)
 	if err != nil {
 		log.Error("Error finalizing Card Pair", err.Error())
@@ -220,11 +230,13 @@ func (c *RemoteConnection) processFinalizeCardPair(msg Message) {
 	}
 	c.sendMessage(ResponseFinalizeCardPair, []byte{})
 	c.pairFinalized = true
+	c.pairingStatus = model.StatusPaired
 	c.session.RemoteCard = c
 	//c.finalizeCardPairErrorChan <- err
 }
 
 func (c *RemoteConnection) processReceivePhonons(msg Message) {
+	// would check for status to be paired, but for replayability, I'm not entirely sure this is necessary
 	err := c.session.ReceivePhonons(msg.Payload)
 	if err != nil {
 		log.Error(err.Error())
@@ -325,11 +337,6 @@ func (c *RemoteConnection) ConnectToCard(cardID string) error {
 		log.Error("error sending Connect2Card request to jumpbox: ", err)
 		return err
 	}
-	err = c.out.Encode(Message{Name: RequestConnectCard2Card, Payload: []byte(cardID)})
-	if err != nil {
-		log.Error("error sending RequestConnectCard2Card: ", err)
-		return err
-	}
 	return nil
 }
 
@@ -362,7 +369,6 @@ func (c *RemoteConnection) sendMessage(messageName string, messagePayload []byte
 		Name:    messageName,
 		Payload: messagePayload,
 	}
-
 	c.out.Encode(tosend)
 }
 
@@ -386,7 +392,6 @@ func (c *RemoteConnection) VerifyPaired() error {
 	if connectedCardID != c.session.GetName() {
 		//remote isn't paired to this card
 		err = c.session.PairWithRemoteCard(c)
-
 	}
 	return err
 }

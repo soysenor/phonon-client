@@ -23,4 +23,6 @@ const (
 	StatusConnectedToBridge
 	StatusConnectedToCard
 	StatusPaired
+	StatusCardPair1Complete
+	StatusCardPair2Complete
 )
