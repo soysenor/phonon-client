@@ -63,7 +63,8 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	r.HandleFunc("/cards/{sessionID}/phonon/create", createPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", redeemPhonon)
 	// api docs
-	r.Handle("/swagger/", http.FileServer(http.FS(swagger)))
+	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/",http.FileServer(http.FS(swagger))))
+	//r.Handle("/swagger/", http.FileServer(http.FS(swagger)))
 	r.HandleFunc("/swagger.json", serveapi)
 
 	http.Handle("/", r)
