@@ -151,7 +151,7 @@ func (c *clientSession) ValidateClient() (bool, error) {
 		log.Error("failed to receive IDENTIFY_CARD response: ", err)
 	}
 	log.Infof("received sig from identifyResponse: %+v", sig)
-	key, err := util.ParseECDSAPubKey(c.certificate.PubKey)
+	key, err := util.ParseECCPubKey(c.certificate.PubKey)
 	if err != nil {
 		log.Error("Unable to parse pubkey from certificate", err.Error())
 		return false, err
@@ -163,7 +163,7 @@ func (c *clientSession) ValidateClient() (bool, error) {
 
 	//Cert has been validated, register clientSession with server and grab card name
 	c.validated = true
-	hexString := util.ECDSAPubKeyToHexString(key)
+	hexString := util.ECCPubKeyToHexString(key)
 	name := hexString[:16]
 	c.Name = name
 	clientSessions[name] = c

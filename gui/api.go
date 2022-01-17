@@ -93,7 +93,7 @@ func createPhonon(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	pub := util.ECDSAPubKeyToHexString(pubkey)
+	pub := util.ECCPubKeyToHexString(pubkey)
 	enc := json.NewEncoder(w)
 	enc.Encode(struct {
 		Index  uint16 `json:"index"`
@@ -205,7 +205,7 @@ func listPhonons(w http.ResponseWriter, r *http.Request) {
 	}
 	ret := []phonRet{}
 	for _, phon := range phonons {
-		pubkey := util.ECDSAPubKeyToHexString(phon.PubKey)
+		pubkey := util.ECCPubKeyToHexString(phon.PubKey)
 		ret = append(ret, phonRet{
 			Index:  int(phon.KeyIndex),
 			PubKey: pubkey,
