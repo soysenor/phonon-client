@@ -38,15 +38,7 @@ type clientSession struct {
 	// the same name that goes in the lookup value of the clientSession map
 }
 
-// type pairing struct {
-// 	initiator *clientSession
-// 	responder *clientSession
-// 	paired    bool
-// }
-
 var clientSessions map[string]*clientSession
-
-// var pairings map[string]pairing
 
 func index(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("hello there"))
