@@ -401,12 +401,12 @@ func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
 		Name: ResponseVerifyPaired,
 	}
 	if c.pairFinalized {
-		key, err := util.ParseECDSAPubKey(c.remoteCertificate.PubKey)
+		key, err := util.ParseECCPubKey(c.remoteCertificate.PubKey)
 		if err != nil {
 			//oopsie
 			return
 		}
-		msg := util.ECDSAPubKeyToHexString(key)[:16]
+		msg := util.ECCPubKeyToHexString(key)[:16]
 		tosend.Payload = []byte(msg)
 	}
 	c.out.Encode(tosend)
