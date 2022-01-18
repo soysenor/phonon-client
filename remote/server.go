@@ -292,6 +292,7 @@ func (c *clientSession) ConnectCard2Card(msg Message) {
 		c.Counterparty.out.Encode(Message{
 			Name: MessageConnectedToCard,
 		})
+		log.Infof("Connected card %s to card %s\n", c.Name, c.Counterparty.Name)
 	} else if c.Counterparty == counterparty && counterparty.Counterparty == c {
 		//do nothing
 	} else {

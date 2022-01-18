@@ -33,7 +33,6 @@ type RemoteConnection struct {
 	counterpartyNonce        [32]byte
 	verified                 bool
 	connectedToCardChan      chan bool
-	pairFinalized            bool
 	verifyPairedChan         chan string
 
 	//card pairing message channels
@@ -101,7 +100,24 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
 	}
+	/*
+		inMsg := Message{}
+		err = client.in.Decode(&inMsg)
+		if err != nil {
+			log.Error("Unable to receive identified message from server: ", err)
+			return nil, err
+		}
+		if inMsg.Name != MessageIdentifiedWithServer {
+			return nil, fmt.Errorf("Unable to verify with Server: Received %s instead of identified message", msg.Name)
+		}
+	*/
 	go client.HandleIncoming()
+
+	select {
+	case <-client.identifiedWithServerChan:
+	case <-time.After(time.Second * 10):
+		return nil, fmt.Errorf("Verification with server timed out")
+	}
 
 	client.pairingStatus = model.StatusConnectedToBridge
 	return client, nil
@@ -137,6 +153,7 @@ func (c *RemoteConnection) process(msg Message) {
 		c.identifiedWithServerChan <- true
 		c.identifiedWithServer = true
 	case MessageConnectedToCard:
+		c.connectedToCardChan <- true
 		c.pairingStatus = model.StatusConnectedToCard
 	// Card pairing requests and responses
 	case RequestCardPair1:
@@ -233,7 +250,6 @@ func (c *RemoteConnection) processFinalizeCardPair(msg Message) {
 		return
 	}
 	c.sendMessage(ResponseFinalizeCardPair, []byte{})
-	c.pairFinalized = true
 	c.pairingStatus = model.StatusPaired
 	c.session.RemoteCard = c
 	//c.finalizeCardPairErrorChan <- err
@@ -278,6 +294,7 @@ func (c *RemoteConnection) Identify() error {
 }
 
 func (c *RemoteConnection) CardPair(initPairingData []byte) (cardPairData []byte, err error) {
+	log.Debug("card pair initiated")
 	c.sendMessage(RequestCardPair1, initPairingData)
 	select {
 	case cardPairData := <-c.cardPair1DataChan:
@@ -294,7 +311,7 @@ func (c *RemoteConnection) CardPair2(cardPairData []byte) (cardPairData2 []byte,
 
 func (c *RemoteConnection) FinalizeCardPair(cardPair2Data []byte) error {
 	c.sendMessage(RequestFinalizeCardPair, cardPair2Data)
-	if !c.pairFinalized {
+	if !(c.pairingStatus == model.StatusPaired) {
 		select {
 		case errorbytes := <-c.finalizeCardPairDataChan:
 			var err error
@@ -307,7 +324,7 @@ func (c *RemoteConnection) FinalizeCardPair(cardPair2Data []byte) error {
 			return ErrTimeout
 		}
 	}
-	c.pairFinalized = true
+	c.pairingStatus = model.StatusPaired
 	c.session.RemoteCard = c
 	return nil
 }
@@ -327,7 +344,7 @@ func (c *RemoteConnection) GetCertificate() (*cert.CardCertificate, error) {
 }
 
 func (c *RemoteConnection) ConnectToCard(cardID string) error {
-	if !c.identifiedWithServer {
+	/*if !c.identifiedWithServer {
 		select {
 		case <-time.After(10 * time.Second):
 			return ErrTimeout
@@ -335,13 +352,18 @@ func (c *RemoteConnection) ConnectToCard(cardID string) error {
 			log.Info("received Identified with server")
 		}
 	}
+	*/
 	log.Info("sending requestConnectCard2Card message")
-	err := c.out.Encode(Message{Name: RequestConnectCard2Card, Payload: []byte(cardID)})
-	if err != nil {
-		log.Error("error sending Connect2Card request to jumpbox: ", err)
-		return err
+	c.sendMessage(RequestConnectCard2Card, []byte(cardID))
+	select {
+	case <-time.After(10 * time.Second):
+		log.Error("Connection Timed out Waiting for peer")
+		c.conn.Close()
+		return ErrTimeout
+	case <-c.connectedToCardChan:
+		c.pairingStatus = model.StatusConnectedToCard
+		return nil
 	}
-	return nil
 }
 
 func (c *RemoteConnection) ReceivePhonons(PhononTransfer []byte) error {
@@ -404,7 +426,7 @@ func (c *RemoteConnection) processRequestVerifyPaired(msg Message) {
 	tosend := &Message{
 		Name: ResponseVerifyPaired,
 	}
-	if c.pairFinalized {
+	if c.pairingStatus == model.StatusPaired {
 		key, err := util.ParseECCPubKey(c.remoteCertificate.PubKey)
 		if err != nil {
 			//oopsie
