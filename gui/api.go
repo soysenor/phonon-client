@@ -35,6 +35,7 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	if mock {
 		//Start server with a mock and ignore actual cards
 		err := session.t.GenerateMock()
+		log.Debug("Mock generated")
 		if err != nil {
 			log.Error("unable to generate mock during REST server startup: ", err)
 			return
@@ -89,7 +90,7 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 
 func (apiSession apiSession) createPhonon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -144,7 +145,7 @@ func (apiSession apiSession) listSessions(w http.ResponseWriter, r *http.Request
 
 func (apiSession apiSession) unlock(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -170,7 +171,7 @@ func (apiSession apiSession) unlock(w http.ResponseWriter, r *http.Request) {
 
 func (apiSession apiSession) connectToJumpbox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -229,7 +230,7 @@ type phonRet struct {
 
 func (apiSession apiSession) listPhonons(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -257,7 +258,7 @@ func (apiSession apiSession) listPhonons(w http.ResponseWriter, r *http.Request)
 
 func (apiSession apiSession) setDescriptor(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -305,7 +306,7 @@ func (apiSession apiSession) setDescriptor(w http.ResponseWriter, r *http.Reques
 
 func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -328,7 +329,7 @@ func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 
 func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -366,7 +367,7 @@ func (apiSession apiSession) generatemock(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (apiSession apiSession) sessionFromMuxVars(p map[string]string) (*session.Session, error) {
+func (apiSession apiSession) selectSession(p map[string]string) (*session.Session, error) {
 	sessionName, ok := p["sessionID"]
 	if !ok {
 		fmt.Println("unable to find session")

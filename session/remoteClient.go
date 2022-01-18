@@ -100,14 +100,7 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
 	}
-
 	go client.HandleIncoming()
-
-	select {
-	case <-client.identifiedWithServerChan:
-	case <-time.After(time.Second * 10):
-		return nil, fmt.Errorf("Verification with server timed out")
-	}
 
 	client.pairingStatus = model.StatusConnectedToBridge
 	return client, nil
