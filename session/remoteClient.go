@@ -32,7 +32,6 @@ type RemoteConnection struct {
 	counterpartyNonce        [32]byte
 	verified                 bool
 	connectedToCardChan      chan bool
-	pairFinalized            bool
 	verifyPairedChan         chan string
 
 	//card pairing message channels
@@ -100,7 +99,24 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
 	}
+	/*
+		inMsg := Message{}
+		err = client.in.Decode(&inMsg)
+		if err != nil {
+			log.Error("Unable to receive identified message from server: ", err)
+			return nil, err
+		}
+		if inMsg.Name != MessageIdentifiedWithServer {
+			return nil, fmt.Errorf("Unable to verify with Server: Received %s instead of identified message", msg.Name)
+		}
+	*/
 	go client.HandleIncoming()
+
+	select {
+	case <-client.identifiedWithServerChan:
+	case <-time.After(time.Second * 10):
+		return nil, fmt.Errorf("Verification with server timed out")
+	}
 
 	client.pairingStatus = model.StatusConnectedToBridge
 	return client, nil
