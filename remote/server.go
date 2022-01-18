@@ -60,8 +60,13 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	cmdDecoder := gob.NewDecoder(conn)
 	//generate session
 	session := clientSession{
-		out: cmdEncoder,
-		in:  cmdDecoder,
+		Name:           "",
+		certificate:    cert.CardCertificate{},
+		underlyingConn: conn,
+		out:            cmdEncoder,
+		in:             cmdDecoder,
+		validated:      false,
+		Counterparty:   nil,
 	}
 
 	valid, err := session.ValidateClient()
@@ -74,7 +79,11 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if !valid {
 		//TODO: use a real error, possibly from cert package
-		err = session.out.Encode("Certificate invalid")
+		msg := Message{
+			Name:    MessageDisconnected,
+			Payload: []byte("Certificate invalid"),
+		}
+		err = session.out.Encode(msg)
 		if err != nil {
 			log.Error("failed sending invalid cert response: ", err)
 			return
@@ -122,16 +131,14 @@ func (c *clientSession) process(msg Message) error {
 func (c *clientSession) ValidateClient() (bool, error) {
 	log.Info("validating client connection")
 	//Read client certificate
-	var rawCert []byte
-	//TODO: Make client offer this on initial connection without having to request it
-	err := c.in.Decode(&rawCert)
+	var in Message
+	err := c.in.Decode(&in)
 	if err != nil {
 		log.Error("unable to decode raw client certificate bytes: ", err)
 		return false, err
 	}
-	//TODO: Remove or DEBUG
 	log.Info("past first Decode:")
-	c.certificate, err = cert.ParseRawCardCertificate(rawCert)
+	c.certificate, err = cert.ParseRawCardCertificate(in.Payload)
 	if err != nil {
 		log.Infof("failed to parse certificate from client %s\n", err.Error())
 		return false, err
@@ -149,6 +156,7 @@ func (c *clientSession) ValidateClient() (bool, error) {
 	sig, err := c.ReceiveIdentifyResponse()
 	if err != nil {
 		log.Error("failed to receive IDENTIFY_CARD response: ", err)
+		return false, err
 	}
 	log.Infof("received sig from identifyResponse: %+v", sig)
 	key, err := util.ParseECCPubKey(c.certificate.PubKey)
@@ -326,14 +334,14 @@ func (c *clientSession) noop(msg Message) {
 
 func (c *clientSession) passthrough(msg Message) {
 	if c.Counterparty == nil {
+		log.Debug("Passing through message to counterparty")
 		ret := Message{
 			Name: MessagePassthruFailed,
 		}
 		c.out.Encode(ret)
-		return
+	} else {
+		c.Counterparty.out.Encode(msg)
 	}
-	c.Counterparty.out.Encode(msg)
-	// needs error handling on the encoding
 }
 
 func (c *clientSession) RequestSendPhonon(msg Message) {

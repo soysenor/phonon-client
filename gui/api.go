@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -25,18 +26,22 @@ var swaggeryaml []byte
 //go:embed swagger
 var swagger embed.FS
 
-var t orchestrator.PhononTerminal
+type apiSession struct {
+	t orchestrator.PhononTerminal
+}
 
 func Server(port string, certFile string, keyFile string, mock bool) {
+	session := apiSession{}
 	if mock {
 		//Start server with a mock and ignore actual cards
-		err := t.GenerateMock()
+		err := session.t.GenerateMock()
+		log.Debug("Mock generated")
 		if err != nil {
 			log.Error("unable to generate mock during REST server startup: ", err)
 			return
 		}
 	} else {
-		_, err := t.RefreshSessions()
+		_, err := session.t.RefreshSessions()
 		if err != nil {
 			log.Error("unable to refresh card sessions during REST server startup: ", err)
 		}
@@ -52,22 +57,23 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	handler := c.Handler(r)
 
 	// sessions
-	r.HandleFunc("/genMock", generatemock)
-	r.HandleFunc("/listSessions", listSessions)
-	r.HandleFunc("/cards/{sessionID}/unlock", unlock)
-	r.HandleFunc("/cards/{sessionID}/Pair", pair)
+	r.HandleFunc("/genMock", session.generatemock)
+	r.HandleFunc("/listSessions", session.listSessions)
+	r.HandleFunc("/cards/{sessionID}/unlock", session.unlock)
+	r.HandleFunc("/cards/{sessionID}/Pair", session.pair)
 	// phonons
-	r.HandleFunc("/cards/{sessionID}/listPhonons", listPhonons)
-	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/setDescriptor", setDescriptor)
-	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/send", send)
-	r.HandleFunc("/cards/{sessionID}/phonon/create", createPhonon)
-	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", redeemPhonon)
+	r.HandleFunc("/cards/{sessionID}/listPhonons", session.listPhonons)
+	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/setDescriptor", session.setDescriptor)
+	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/send", session.send)
+	r.HandleFunc("/cards/{sessionID}/phonon/create", session.createPhonon)
+	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", session.redeemPhonon)
 	// api docs
-	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/",http.FileServer(http.FS(swagger))))
+	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/", http.FileServer(http.FS(swagger))))
 	//r.Handle("/swagger/", http.FileServer(http.FS(swagger)))
-	r.HandleFunc("/swagger.json", serveapi)
+	r.HandleFunc("/swagger.json", serveAPIFunc(port))
 
 	http.Handle("/", r)
+	log.Debug("Listening for incoming connections on " + port)
 	if certFile != "" && keyFile != "" {
 		err := http.ListenAndServeTLS(":"+port, certFile, keyFile, handler)
 		if err != nil {
@@ -82,9 +88,9 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 
 }
 
-func createPhonon(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) createPhonon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -103,12 +109,25 @@ func createPhonon(w http.ResponseWriter, r *http.Request) {
 		PubKey: pub})
 }
 
-func serveapi(w http.ResponseWriter, r *http.Request) {
-	http.ServeContent(w, r, "swagger.json", time.Time{}, bytes.NewReader(swaggeryaml))
+func serveAPIFunc(port string) func(w http.ResponseWriter, r *http.Request) {
+	swaggerTemplateFile := string(swaggeryaml)
+	templ, err := template.New("swaggeryaml").Parse(swaggerTemplateFile)
+	if err != nil {
+		// this shouldn't happen. this is to make sure it fails in testing if it's set up wrong
+		log.Fatal("Unable to render swagger template. Exiting")
+	}
+	buff := bytes.NewBuffer([]byte{})
+	err = templ.Execute(buff, port)
+	if err != nil {
+		log.Fatal("Unable to render port into swagger yaml, Exting")
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.ServeContent(w, r, "swagger.json", time.Time{}, bytes.NewReader(buff.Bytes()))
+	}
 }
 
-func listSessions(w http.ResponseWriter, r *http.Request) {
-	sessions := t.ListSessions()
+func (apiSession apiSession) listSessions(w http.ResponseWriter, r *http.Request) {
+	sessions := apiSession.t.ListSessions()
 
 	names := []string{}
 	if len(sessions) == 0 {
@@ -124,9 +143,9 @@ func listSessions(w http.ResponseWriter, r *http.Request) {
 	}{Sessions: names})
 }
 
-func unlock(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) unlock(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -150,9 +169,9 @@ func unlock(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func pair(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) pair(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -170,7 +189,7 @@ func pair(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = t.ConnectRemoteSession(sess, pairReq.URL)
+	err = apiSession.t.ConnectRemoteSession(sess, pairReq.URL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -185,9 +204,9 @@ type phonRet struct {
 	Value  int    `json:"value"`
 }
 
-func listPhonons(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) listPhonons(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -222,9 +241,9 @@ func listPhonons(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setDescriptor(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) setDescriptor(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -270,9 +289,9 @@ func setDescriptor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func send(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -291,12 +310,11 @@ func send(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "unable to send phonons: "+err.Error(), http.StatusInternalServerError)
 	}
-
 }
 
-func redeemPhonon(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := selectSession(vars)
+	sess, err := apiSession.selectSession(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -327,20 +345,20 @@ func redeemPhonon(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func generatemock(w http.ResponseWriter, r *http.Request) {
-	err := t.GenerateMock()
+func (apiSession apiSession) generatemock(w http.ResponseWriter, r *http.Request) {
+	err := apiSession.t.GenerateMock()
 	if err != nil {
 		http.Error(w, "unable to generate mock", http.StatusInternalServerError)
 	}
 }
 
-func selectSession(p map[string]string) (*session.Session, error) {
+func (apiSession apiSession) selectSession(p map[string]string) (*session.Session, error) {
 	sessionName, ok := p["sessionID"]
 	if !ok {
 		fmt.Println("unable to find session")
 		return nil, fmt.Errorf("Unable to find sesion")
 	}
-	sessions := t.ListSessions()
+	sessions := apiSession.t.ListSessions()
 	var targetSession *session.Session
 	for _, session := range sessions {
 		if session.GetName() == sessionName {

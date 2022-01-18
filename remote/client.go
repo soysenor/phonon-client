@@ -92,25 +92,28 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 		}
 	}
 	log.Info("client has crt: ", s.Cert)
-	err = client.out.Encode(s.Cert.Serialize())
+	msg := Message{
+		Name:    ResponseCertificate,
+		Payload: s.Cert.Serialize(),
+	}
+	err = client.out.Encode(msg)
 	if err != nil {
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
 	}
-	//TODO: remove or debug
-	log.Info("got past first encode")
-
 	go client.HandleIncoming()
 
+	client.pairingStatus = model.StatusConnectedToBridge
 	return client, nil
 }
 
 func (c *RemoteConnection) HandleIncoming() {
+	var err error
 	message := Message{}
-	err := c.in.Decode(&message)
+	err = c.in.Decode(&message)
 	for err == nil {
 		c.process(message)
-		message := Message{}
+		message = Message{}
 		err = c.in.Decode(&message)
 	}
 	log.Printf("Error decoding message: %s", err.Error())
@@ -118,6 +121,7 @@ func (c *RemoteConnection) HandleIncoming() {
 }
 
 func (c *RemoteConnection) process(msg Message) {
+	log.Debug(fmt.Sprintf("Processing %s message", msg.Name))
 	switch msg.Name {
 	case RequestCertificate:
 		c.sendCertificate(msg)
