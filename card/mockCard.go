@@ -7,6 +7,7 @@ import (
 	"crypto/sha512"
 	"errors"
 	"fmt"
+	"time"
 	"unicode"
 
 	"github.com/GridPlus/keycard-go/crypto"
@@ -26,19 +27,23 @@ type MockCard struct {
 	Phonons []*MockPhonon
 
 	// This is a slice of indeces of deleted phonons. This is to match the insert logic of the card implementation
-	deletedPhonons  []int
-	pin             string
-	pinVerified     bool
-	sc              SecureChannel
-	receiveList     []*ecdsa.PublicKey
-	identityKey     *ecdsa.PrivateKey
-	IdentityPubKey  *ecdsa.PublicKey
-	IdentityCert    cert.CardCertificate
-	scPairData      SecureChannelPairingDetails
-	invoices        map[string][]byte
-	outgoingInvoice Invoice
-	staticPairing   bool
-	friendlyName    string
+	deletedPhonons    []int
+	pin               string
+	pinVerified       bool
+	sc                SecureChannel
+	receiveList       []*ecdsa.PublicKey
+	identityKey       *ecdsa.PrivateKey
+	IdentityPubKey    *ecdsa.PublicKey
+	IdentityCert      cert.CardCertificate
+	scPairData        SecureChannelPairingDetails
+	invoices          map[string][]byte
+	outgoingInvoice   Invoice
+	staticPairing     bool
+	friendlyName      string
+	mintLimit         int
+	mintRate          int
+	nativePhononNonce int
+	npCollection      []*NativePhonon
 }
 
 type MockPhonon struct {
@@ -91,6 +96,42 @@ func (phonon *MockPhonon) Encode() (tlv.TLV, error) {
 	}
 
 	return phononDescriptionTLV, nil
+}
+
+type NativePhonon struct {
+	originCert cert.CardCertificate
+	originSig  []byte //representing an ECDSA signatures
+	nonce      int
+}
+
+/*MineNativePhonons produces NativePhonons at a deterministic interval and stores them
+persistently along with the metadata to prove their genuine origin*/
+func (c *MockCard) MineNativePhonons() error {
+	//Mint periodically up to a maximum limit, rate and max both configurable at provisioning
+	for i := 0; i < (c.mintLimit); i++ {
+		if i%c.mintRate == 0 {
+			//Mint NativePhonon
+			c.nativePhononNonce += 1
+			//Generate signature of authenticity with identity certificate
+			sig, _ := c.identityKey.Sign(rand.Reader, []byte{byte(c.nativePhononNonce)}, nil)
+			//Construct NativePhonon
+			np := &NativePhonon{
+				originCert: c.IdentityCert,
+				originSig:  sig,
+				nonce:      c.nativePhononNonce,
+			}
+			//Store NativePhonon for future transfer
+			c.AddNativePhonon(np)
+		}
+		//Simulate limited operation speed of a physical card with time based counter
+		time.Sleep(1 * time.Second)
+	}
+	return nil
+}
+
+func (c *MockCard) AddNativePhonon(np *NativePhonon) error {
+	c.npCollection = append(c.npCollection, np)
+	return nil
 }
 
 func decodePhononTLV(privatePhononTLV []byte) (phonon MockPhonon, err error) {
@@ -163,6 +204,8 @@ func NewMockCard(isInitialized bool, isStatic bool) (*MockCard, error) {
 		IdentityPubKey: &identityPrivKey.PublicKey,
 		invoices:       make(map[string][]byte),
 		staticPairing:  isStatic,
+		mintLimit:      100,
+		mintRate:       20,
 	}
 
 	//If card should be initialized, go ahead and install a mock cert and set the test pin
