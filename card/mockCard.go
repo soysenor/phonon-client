@@ -5,9 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"time"
+	"math/bits"
 	"unicode"
 
 	"github.com/GridPlus/keycard-go/crypto"
@@ -27,23 +28,22 @@ type MockCard struct {
 	Phonons []*MockPhonon
 
 	// This is a slice of indeces of deleted phonons. This is to match the insert logic of the card implementation
-	deletedPhonons    []int
-	pin               string
-	pinVerified       bool
-	sc                SecureChannel
-	receiveList       []*ecdsa.PublicKey
-	identityKey       *ecdsa.PrivateKey
-	IdentityPubKey    *ecdsa.PublicKey
-	IdentityCert      cert.CardCertificate
-	scPairData        SecureChannelPairingDetails
-	invoices          map[string][]byte
-	outgoingInvoice   Invoice
-	staticPairing     bool
-	friendlyName      string
-	mintLimit         int
-	mintRate          int
-	nativePhononNonce int
-	npCollection      []*NativePhonon
+	deletedPhonons  []int
+	pin             string
+	pinVerified     bool
+	sc              SecureChannel
+	receiveList     []*ecdsa.PublicKey
+	identityKey     *ecdsa.PrivateKey
+	IdentityPubKey  *ecdsa.PublicKey
+	IdentityCert    cert.CardCertificate
+	scPairData      SecureChannelPairingDetails
+	invoices        map[string][]byte
+	outgoingInvoice Invoice
+	staticPairing   bool
+	friendlyName    string
+	mintLimit       int
+	mintRate        int
+	nativePhonons   []*NativePhonon
 }
 
 type MockPhonon struct {
@@ -100,38 +100,62 @@ func (phonon *MockPhonon) Encode() (tlv.TLV, error) {
 
 type NativePhonon struct {
 	originCert cert.CardCertificate
-	originSig  []byte //representing an ECDSA signatures
-	nonce      int
+	originSig  []byte   //representing an ECDSA signatures
+	hash       [32]byte //sha256 representing mint rarity
+	rarity     int      //human readable rarity representation
 }
 
-/*MineNativePhonons produces NativePhonons at a deterministic interval and stores them
+func (np *NativePhonon) String() string {
+	return fmt.Sprintf(
+		"Certificate: \n%v\nSignature: %x\nHash %x\nRarity: %v\n\n",
+		np.originCert,
+		np.originSig,
+		np.hash,
+		np.rarity,
+	)
+}
+
+/*MineNativePhonons produces NativePhonons by probabilistic hash mining and stores them
 persistently along with the metadata to prove their genuine origin*/
 func (c *MockCard) MineNativePhonons() error {
-	//Mint periodically up to a maximum limit, rate and max both configurable at provisioning
-	for i := 0; i < (c.mintLimit); i++ {
-		if i%c.mintRate == 0 {
-			//Mint NativePhonon
-			c.nativePhononNonce += 1
-			//Generate signature of authenticity with identity certificate
-			sig, _ := c.identityKey.Sign(rand.Reader, []byte{byte(c.nativePhononNonce)}, nil)
+	//Mint up to a maximum limit
+	mintLimit := 2
+	//Set rarity floor for mining a Native Phonon
+	miningDifficulty := 4
+
+	mintCount := 0
+	for i := 0; mintCount < mintLimit; i++ {
+		hash := sha256.Sum256(append(c.IdentityCert.Serialize(), byte(i)))
+		hashValue := binary.BigEndian.Uint32(hash[:])
+		rarity := bits.LeadingZeros32(hashValue)
+		if rarity > miningDifficulty {
+			//Generate signature of authenticity with card's identity certificate
+			sig, _ := c.identityKey.Sign(rand.Reader, hash[:], nil)
 			//Construct NativePhonon
 			np := &NativePhonon{
+				//include card's identity cert to prove valid origin
 				originCert: c.IdentityCert,
-				originSig:  sig,
-				nonce:      c.nativePhononNonce,
+				//include signature by cert to prove possession of cert
+				originSig: sig,
+				//include hash to prove mint rarity
+				hash:   hash,
+				rarity: rarity,
 			}
 			//Store NativePhonon for future transfer
 			c.AddNativePhonon(np)
+			mintCount++
 		}
-		//Simulate limited operation speed of a physical card with time based counter
-		time.Sleep(1 * time.Second)
 	}
 	return nil
 }
 
 func (c *MockCard) AddNativePhonon(np *NativePhonon) error {
-	c.npCollection = append(c.npCollection, np)
+	c.nativePhonons = append(c.nativePhonons, np)
 	return nil
+}
+
+func (c *MockCard) OutputNativePhonons() []*NativePhonon {
+	return c.nativePhonons
 }
 
 func decodePhononTLV(privatePhononTLV []byte) (phonon MockPhonon, err error) {

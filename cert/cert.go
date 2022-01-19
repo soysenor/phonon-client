@@ -209,3 +209,8 @@ func (cert CardCertificate) Serialize() []byte {
 	bytes = append(bytes, cert.Sig...)
 	return bytes
 }
+
+func (cert CardCertificate) String() string {
+	return fmt.Sprintf("\tPubKey: %x\n\tPermissions: % X\n\tSignature: %x",
+		cert.PubKey, cert.Permissions, cert.Sig)
+}
