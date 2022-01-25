@@ -643,7 +643,6 @@ func (cs *PhononCommandSet) SendPhonons(keyIndices []uint16, extendedRequest boo
 	cmd := NewCommandSendPhonons(data, p2Length, extendedRequest)
 	resp, err := cs.sc.Send(cmd)
 	if err != nil {
-		log.Error("error in send phonons command: ", err)
 		return nil, err
 	}
 

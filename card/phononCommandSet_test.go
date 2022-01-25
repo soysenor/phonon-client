@@ -386,9 +386,11 @@ func prepareCardForPairingTest(cs *StaticPhononCommandSet) (uint16, error) {
 	return keyIndex, nil
 }
 
-//Test is informational only for now. Proper error value that should be returned from send is not defined
+/*TestIncompletePairing connects to a card and runs through the pairing process one command at a time, inserting
+an incorrectly placed SendPhonons command at different stages in the process to check that the card properly detects
+this error case*/
 func TestIncompletePairing(t *testing.T) {
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 	mock, err := NewMockCard(true, false)
 	if err != nil {
 		t.Error(err)
@@ -412,7 +414,9 @@ func TestIncompletePairing(t *testing.T) {
 	//Issue Send to unpaired card
 	_, err = cs.SendPhonons([]uint16{keyIndex}, false)
 	if err != nil {
-		t.Log(err)
+		if err.Error() != "Incorrect pairing state for command" {
+			t.Errorf("did not receive expected error message SendPhonons with no card pairing: %v, instead received: %v", "Incorrect pairing state for command", err)
+		}
 	}
 
 	//Start pairing process but don't complete it.
@@ -424,7 +428,9 @@ func TestIncompletePairing(t *testing.T) {
 	//Issue SendPhonons command
 	_, err = cs.SendPhonons([]uint16{keyIndex}, false)
 	if err != nil {
-		t.Log("expected error received calling SEND_PHONONS command after just INIT_CARD_PAIRING err: ", err)
+		if err.Error() != "Incorrect pairing state for command" {
+			t.Errorf("did not receive expected error message for SendPhonons after InitCardPairing: %v, instead received: %v", "Incorrect pairing state for command", err)
+		}
 	}
 
 	//Reset card and try again with every card pairing command
@@ -440,7 +446,9 @@ func TestIncompletePairing(t *testing.T) {
 
 	_, err = cs.SendPhonons([]uint16{keyIndex}, false)
 	if err != nil {
-		t.Log("expected error received calling SEND_PHONONS after just CARD_PAIR_1. err: ", err)
+		if err.Error() != "Incorrect pairing state for command" {
+			t.Errorf("did not receive expected error message for SendPhonons after only CardPair1: %v, instead received: %v", "Incorrect pairing state for command", err)
+		}
 	}
 
 	keyIndex, err = prepareCardForPairingTest(cs)
@@ -455,6 +463,9 @@ func TestIncompletePairing(t *testing.T) {
 	_, err = cs.SendPhonons([]uint16{keyIndex}, false)
 	if err != nil {
 		t.Log("expected error received calling SEND_PHONONS after just CARD_PAIR_2. err: ", err)
+		if err.Error() != "Incorrect pairing state for command" {
+			t.Errorf("did not receive expected error message for SendPhonons after only CardPair2: %v, instead received: %v", "Incorrect pairing state for command", err)
+		}
 	}
 
 	keyIndex, err = prepareCardForPairingTest(cs)
@@ -464,12 +475,16 @@ func TestIncompletePairing(t *testing.T) {
 	}
 	err = cs.FinalizeCardPair(cardPair2Data)
 	if err != nil {
-		t.Log(err)
-
+		if err.Error() != "Incorrect pairing state for command" {
+			t.Errorf("did not receive expected error message after InitCardPairing: %v, instead received: %v", "Incorrect pairing state for command", err)
+		}
 	}
 	_, err = cs.SendPhonons([]uint16{keyIndex}, false)
 	if err != nil {
 		t.Log("expected error received calling SEND_PHONONS after just FINALIZE_CARD_PAIR. err: ", err)
+		if err.Error() != "Incorrect pairing state for command" {
+			t.Errorf("did not receive expected error message for SendPhonons after only FinalizeCardPair: %v, instead received: %v", "Incorrect pairing state for command", err)
+		}
 	}
 }
 

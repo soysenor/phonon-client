@@ -86,6 +86,7 @@ const (
 	SW_CLA_NOT_SUPPORTED              = 0x6E00
 	SW_COMMAND_CHAINING_NOT_SUPPORTED = 0x6884
 	SW_COMMAND_NOT_ALLOWED            = 0x6986
+	SW_INCORRECT_PAIRING_STATE        = 0x6987
 	SW_CONDITIONS_NOT_SATISFIED       = 0x6985
 	SW_CORRECT_LENGTH_00              = 0x6C00
 	SW_DATA_INVALID                   = 0x6984
@@ -297,6 +298,7 @@ func NewCommandSendPhonons(data []byte, p2Length byte, extendedRequest bool) *Co
 			SW_INCORRECT_P1P2:           "PhononList continue greater than 1",
 			SW_INCORRECT_P1P2 + 1:       "No Phonons Requested",
 			SW_WRONG_DATA:               "Incorrect phonon index",
+			SW_INCORRECT_PAIRING_STATE:  "Incorrect pairing state for command",
 		},
 	}
 }
@@ -316,6 +318,7 @@ func NewCommandReceivePhonons(phononTransferPacket []byte) *Command {
 			SW_CONDITIONS_NOT_SATISFIED: "Phonon recipt conditions not met",
 			SW_FILE_FULL:                "Maximum number of phonons exceeded",
 			SW_WRONG_DATA:               "Unable to decode Phonon key list TLV",
+			SW_INCORRECT_PAIRING_STATE:  "Incorrect pairing state for command",
 		},
 	}
 }
@@ -367,6 +370,7 @@ func NewCommandInitCardPairing(data []byte) *Command {
 			SW_CONDITIONS_NOT_SATISFIED: "Pin not validated",
 			SW_WRONG_DATA:               "Unable to decode certificate TLV",
 			SW_COMMAND_NOT_ALLOWED:      "Card certificate not initialized",
+			SW_INCORRECT_PAIRING_STATE:  "Incorrect pairing state for command",
 		},
 	}
 }
@@ -384,6 +388,7 @@ func NewCommandCardPair(data []byte) *Command {
 			SW_CONDITIONS_NOT_SATISFIED: "Pin Not Validated",
 			SW_WRONG_DATA:               "Unable to decode card certificate TLV",
 			SW_WRONG_DATA + 1:           "Unable to decode salt TLV",
+			SW_INCORRECT_PAIRING_STATE:  "Incorrect pairing state for command",
 		},
 	}
 }
@@ -402,6 +407,7 @@ func NewCommandCardPair2(data []byte) *Command {
 			SW_WRONG_DATA:               "Unable to read salt",
 			SW_WRONG_DATA + 1:           "Unable to read AES TLV",
 			SW_WRONG_DATA + 2:           "Unable to read Signature TLV",
+			SW_INCORRECT_PAIRING_STATE:  "Incorrect pairing state for command",
 		},
 	}
 }
@@ -420,6 +426,7 @@ func NewCommandFinalizeCardPair(data []byte) *Command {
 			SW_CONDITIONS_NOT_SATISFIED:      "Pin not validated",
 			SW_WRONG_DATA:                    "Unable to read Receiver signature TLV",
 			SW_SECURITY_STATUS_NOT_SATISFIED: "Unable to verify signature",
+			SW_INCORRECT_PAIRING_STATE:       "Incorrect pairing state for command",
 		},
 	}
 }

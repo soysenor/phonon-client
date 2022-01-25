@@ -19,7 +19,7 @@ func GetConfig() Config {
 	conf := Config{
 		PhononCommandSetConfig: PhononCommandSetConfig{
 			PhononCACert: cert.PhononAlphaCAPubKey,
-			LogLevel:     log.DebugLevel,
+			LogLevel:     log.InfoLevel,
 		},
 	}
 	return conf
