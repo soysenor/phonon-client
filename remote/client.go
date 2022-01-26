@@ -90,7 +90,7 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 			return nil, err
 		}
 	}
-	log.Info("client has crt: ", s.Cert)
+	log.Debug("client has crt: ", s.Cert)
 	msg := Message{
 		Name:    ResponseCertificate,
 		Payload: s.Cert.Serialize(),
@@ -100,17 +100,7 @@ func Connect(s *session.Session, url string, ignoreTLS bool) (*RemoteConnection,
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
 	}
-	/*
-		inMsg := Message{}
-		err = client.in.Decode(&inMsg)
-		if err != nil {
-			log.Error("Unable to receive identified message from server: ", err)
-			return nil, err
-		}
-		if inMsg.Name != MessageIdentifiedWithServer {
-			return nil, fmt.Errorf("Unable to verify with Server: Received %s instead of identified message", msg.Name)
-		}
-	*/
+
 	go client.HandleIncoming()
 
 	select {
@@ -175,10 +165,8 @@ func (c *RemoteConnection) process(msg Message) {
 	case RequestDisconnectFromCard:
 		c.disconnectFromCard()
 	case ResponseVerifyPaired:
-		{
-			if c.verifyPairedChan != nil {
-				c.verifyPairedChan <- string(msg.Payload)
-			}
+		if c.verifyPairedChan != nil {
+			c.verifyPairedChan <- string(msg.Payload)
 		}
 	}
 }
@@ -344,15 +332,6 @@ func (c *RemoteConnection) GetCertificate() (*cert.CardCertificate, error) {
 }
 
 func (c *RemoteConnection) ConnectToCard(cardID string) error {
-	/*if !c.identifiedWithServer {
-		select {
-		case <-time.After(10 * time.Second):
-			return ErrTimeout
-		case <-c.identifiedWithServerChan:
-			log.Info("received Identified with server")
-		}
-	}
-	*/
 	log.Info("sending requestConnectCard2Card message")
 	c.sendMessage(RequestConnectCard2Card, []byte(cardID))
 	select {
