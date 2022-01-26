@@ -90,7 +90,7 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 
 func (apiSession apiSession) createPhonon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -145,7 +145,7 @@ func (apiSession apiSession) listSessions(w http.ResponseWriter, r *http.Request
 
 func (apiSession apiSession) unlock(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -171,7 +171,7 @@ func (apiSession apiSession) unlock(w http.ResponseWriter, r *http.Request) {
 
 func (apiSession apiSession) connectToJumpbox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -230,7 +230,7 @@ type phonRet struct {
 
 func (apiSession apiSession) listPhonons(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -258,7 +258,7 @@ func (apiSession apiSession) listPhonons(w http.ResponseWriter, r *http.Request)
 
 func (apiSession apiSession) setDescriptor(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -306,7 +306,7 @@ func (apiSession apiSession) setDescriptor(w http.ResponseWriter, r *http.Reques
 
 func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -329,7 +329,7 @@ func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 
 func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sess, err := apiSession.selectSession(vars)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -367,7 +367,7 @@ func (apiSession apiSession) generatemock(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (apiSession apiSession) selectSession(p map[string]string) (*session.Session, error) {
+func (apiSession apiSession) sessionFromMuxVars(p map[string]string) (*session.Session, error) {
 	sessionName, ok := p["sessionID"]
 	if !ok {
 		fmt.Println("unable to find session")

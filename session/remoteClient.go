@@ -99,17 +99,7 @@ func Connect(s *Session, url string, ignoreTLS bool) (*RemoteConnection, error) 
 		log.Error("unable to send cert to jump server. err: ", err)
 		return nil, err
 	}
-	/*
-		inMsg := Message{}
-		err = client.in.Decode(&inMsg)
-		if err != nil {
-			log.Error("Unable to receive identified message from server: ", err)
-			return nil, err
-		}
-		if inMsg.Name != MessageIdentifiedWithServer {
-			return nil, fmt.Errorf("Unable to verify with Server: Received %s instead of identified message", msg.Name)
-		}
-	*/
+
 	go client.HandleIncoming()
 
 	select {
