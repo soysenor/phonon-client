@@ -74,7 +74,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = session.out.Encode(err.Error())
 		if err != nil {
-			log.Error("failed sending cert validation failure response: ", err)
+			log.Error("faied sending cert validation failure response: ", err)
 			return
 		}
 	}
@@ -175,8 +175,8 @@ func (c *clientSession) ValidateClient() (bool, error) {
 	name := util.CardIDFromPubKey(key)
 	c.Name = name
 	clientSessions[name] = c
-	c.out.Encode(Message{
-		Name:    MessageIdentifiedWithServer,
+	c.out.Encode(model.Message{
+		Name:    model.MessageIdentifiedWithServer,
 		Payload: []byte(name),
 	})
 
@@ -240,6 +240,7 @@ func (c *clientSession) provideCertificate() {
 	}
 	return
 }
+
 func (c *clientSession) ConnectCard2Card(msg model.Message) {
 	log.Infof("attempting to connect card %s to card %s\n", c.Name, string(msg.Payload))
 	counterparty, ok := clientSessions[string(msg.Payload)]

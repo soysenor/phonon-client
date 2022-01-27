@@ -406,6 +406,7 @@ func (c *RemoteConnection) VerifyPaired() error {
 	}
 	return err
 }
+
 func (c *RemoteConnection) processRequestVerifyPaired(msg model.Message) {
 	tosend := &model.Message{
 		Name: model.ResponseVerifyPaired,

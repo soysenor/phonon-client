@@ -194,7 +194,7 @@ func (apiSession apiSession) connectToJumpbox(w http.ResponseWriter, r *http.Req
 
 func (apiSession apiSession) pairWithOpposingCard(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	err = apiSession.t.ConnectRemoteSession(sess, pairReq.URL)
+	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
