@@ -102,9 +102,17 @@ func Start() {
 	// })
 
 	shell.AddCmd(&ishell.Cmd{
-		Name: "pairRemote",
-		Func: connectRemoteSession,
-		Help: "Connect to a remote server",
+		Name: "jumpboxConnect",
+		Func: connectToJumpbox,
+		Help: `Connect to a remote server
+		Args: [jumpboxURL]`,
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "pairRemoteCard",
+		Func: connectToRemoteCard,
+		Help: `Connect to remote card.
+		Args: [remoteCardID]`,
 	})
 
 	shell.AddCmd(&ishell.Cmd{
@@ -239,14 +247,28 @@ func getBalance(c *ishell.Context) {
 	// c.Printf("Balance of card %d is %v", sessionIndex, t.GetBalance(sessionIndex, phononIndex))
 }
 
-func connectRemoteSession(c *ishell.Context) {
-	fmt.Println("connecting to remote")
+func connectToJumpbox(c *ishell.Context) {
+	c.Println("Connecting to Jumpbox")
 	if len(c.Args) != 1 {
 		fmt.Println("wrong number of arguments given")
 		return
 	}
-	CounterPartyConnInfo := c.Args[0]
-	err := t.ConnectRemoteSession(activeCard, CounterPartyConnInfo)
+	jumpboxURL := c.Args[0]
+	err := activeCard.ConnectToJumpbox(jumpboxURL)
+	if err != nil {
+		c.Err(err)
+	}
+
+}
+
+func connectToRemoteCard(c *ishell.Context) {
+	fmt.Println("Connecting to remote card")
+	if len(c.Args) != 1 {
+		fmt.Println("wrong number of arguments given")
+		return
+	}
+	counterpartyID := c.Args[0]
+	err := activeCard.PairWithRemoteCard(counterpartyID)
 	if err != nil {
 		c.Err(err)
 	}

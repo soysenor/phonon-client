@@ -60,7 +60,8 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	r.HandleFunc("/genMock", session.generatemock)
 	r.HandleFunc("/listSessions", session.listSessions)
 	r.HandleFunc("/cards/{sessionID}/unlock", session.unlock)
-	r.HandleFunc("/cards/{sessionID}/Pair", session.pair)
+	r.HandleFunc("/cards/{sessionID}/jumpboxConnect", session.connectToJumpbox)
+	r.HandleFunc("/cards/{sessionID}/PairWithCard", session.pairWithOpposingCard)
 	// phonons
 	r.HandleFunc("/cards/{sessionID}/listPhonons", session.listPhonons)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/setDescriptor", session.setDescriptor)
@@ -168,32 +169,47 @@ func (apiSession apiSession) unlock(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (apiSession apiSession) pair(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) connectToJumpbox(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Unable to read body", http.StatusBadRequest)
-		return
-	}
-	pairReq := struct {
-		URL string `json:"url"`
-	}{}
-	err = json.Unmarshal(body, &pairReq)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	err = apiSession.t.ConnectRemoteSession(sess, pairReq.URL)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	jumpboxHost, ok := vars["jumpboxHost"]
+	if !ok {
+		http.Error(w, "Unable to parse JumpboxURL from request", http.StatusBadRequest)
 	}
 
+	err = sess.ConnectToJumpbox(jumpboxHost)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+}
+
+func (apiSession apiSession) pairWithOpposingCard(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sess, err := apiSession.sessionFromMuxVars(vars)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	switch sess.RemoteCard.PairingStatus() {
+	case model.StatusUnconnected:
+		http.Error(w, "Card not connected to bridge", http.StatusForbidden)
+		return
+	case model.StatusConnectedToBridge, model.StatusConnectedToCard, model.StatusCardPair1Complete, model.StatusCardPair2Complete:
+	}
+	counterpartyID, ok := vars["counterpartyID"]
+	if !ok {
+		http.Error(w, "counterpartyID not included in request", http.StatusBadRequest)
+	}
+
+	err = sess.PairWithRemoteCard(counterpartyID)
+	if err != nil {
+		http.Error(w, "Unable to pair with remote card", http.StatusInternalServerError)
+	}
 }
 
 type phonRet struct {

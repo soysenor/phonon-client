@@ -2,18 +2,12 @@ package orchestrator
 
 import (
 	"errors"
-	"fmt"
-	"net/url"
-	"strings"
-	"time"
 
 	"github.com/GridPlus/keycard-go/io"
 	"github.com/GridPlus/phonon-client/card"
 	"github.com/GridPlus/phonon-client/model"
-	"github.com/GridPlus/phonon-client/remote"
 	"github.com/GridPlus/phonon-client/session"
 	"github.com/GridPlus/phonon-client/usb"
-	log "github.com/sirupsen/logrus"
 )
 
 type PhononTerminal struct {
@@ -69,7 +63,7 @@ func (t *PhononTerminal) ListSessions() []*session.Session {
 	return t.sessions
 }
 
-//TODO: probably rework this to move to session because it's awkward to control it from here via the rest server
+/*
 func (t *PhononTerminal) ConnectRemoteSession(session *session.Session, cardURL string) error {
 	u, err := url.Parse(cardURL)
 	if err != nil {
@@ -109,7 +103,7 @@ func (t *PhononTerminal) ConnectRemoteSession(session *session.Session, cardURL 
 	err = session.PairWithRemoteCard(remConn)
 	return err
 }
-
+*/
 func (t *PhononTerminal) SetReceiveMode(sessionIndex int) {
 	// set this session to accept incoming secureConnections
 }

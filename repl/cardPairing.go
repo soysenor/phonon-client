@@ -31,14 +31,14 @@ func cardPairLocal(c *ishell.Context) {
 		c.Println("no card selected. exiting pairing...")
 		return
 	}
+
 	pairingCard := otherCards[selection]
 	c.Println("starting pairing with ", pairingCard.GetName())
 	remoteCard := orchestrator.NewLocalCounterParty(pairingCard)
-
-	err := activeCard.PairWithRemoteCard(remoteCard)
+	activeCard.RemoteCard = remoteCard
+	err := activeCard.RemoteCard.ConnectToCard(pairingCard.GetName())
 	if err != nil {
-		c.Println("pairing failed: ", err)
-		return
+		c.Err(err)
 	}
 	c.Println("cards successfully paired")
 }

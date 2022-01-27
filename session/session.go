@@ -3,6 +3,7 @@ package session
 import (
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 
 	"github.com/GridPlus/phonon-client/card"
 	"github.com/GridPlus/phonon-client/cert"
@@ -294,8 +295,8 @@ func (s *Session) ReceiveInvoice(invoiceData []byte) error {
 	return nil
 }
 
-func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) error {
-	remoteCert, err := remoteCard.GetCertificate()
+func (s *Session) PairWithConnectedCard() error {
+	remoteCert, err := s.RemoteCard.GetCertificate()
 	if err != nil {
 		return err
 	}
@@ -304,7 +305,7 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 		return err
 	}
 	log.Debug("sending card pair request")
-	cardPairData, err := remoteCard.CardPair(initPairingData)
+	cardPairData, err := s.RemoteCard.CardPair(initPairingData)
 	if err != nil {
 		return err
 	}
@@ -313,10 +314,30 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 		log.Debug("PairWithRemoteCard failed at cardPair2. err: ", err)
 		return err
 	}
-	err = remoteCard.FinalizeCardPair(cardPair2Data)
+	err = s.RemoteCard.FinalizeCardPair(cardPair2Data)
 	if err != nil {
 		return err
 	}
-	s.RemoteCard = remoteCard
+	return nil
+}
+
+func (s *Session) ConnectToJumpbox(jumpboxHost string) error {
+	remConn, err := Connect(s, fmt.Sprintf("https://%s/phonon", jumpboxHost), true)
+	if err != nil {
+		return fmt.Errorf("unable to connect to remote session: %s", err.Error())
+	}
+	s.RemoteCard = remConn
+	return nil
+}
+
+func (s *Session) PairWithRemoteCard(cardID string) error {
+	err := s.RemoteCard.ConnectToCard(cardID)
+	if err != nil {
+		return fmt.Errorf("Unable to connect to remote card: %s", err.Error())
+	}
+	err = s.PairWithConnectedCard()
+	if err != nil {
+		return fmt.Errorf("Unable to pair with remote card: %s", err.Error())
+	}
 	return nil
 }

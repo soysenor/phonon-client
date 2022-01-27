@@ -65,3 +65,7 @@ func (lcp *localCounterParty) VerifyPaired() error {
 func (lcp *localCounterParty) PairingStatus() model.RemotePairingStatus {
 	return lcp.pairingStatus
 }
+
+func (lcp *localCounterParty) ConnectToCard(string) error {
+	return lcp.s.PairWithConnectedCard()
+}

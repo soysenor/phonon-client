@@ -35,6 +35,13 @@ var sendPhononsCmd = &cobra.Command{
 	},
 }
 
+var (
+	useMockReceiver     bool
+	useMockSender       bool
+	senderReaderIndex   int
+	receiverReaderIndex int
+)
+
 func init() {
 	rootCmd.AddCommand(sendPhononsCmd)
 
@@ -120,9 +127,9 @@ func sendPhonons() {
 	}
 
 	receiver := orchestrator.NewLocalCounterParty(receiverSession)
-
 	fmt.Println("starting card to card pairing")
-	err = sender.PairWithRemoteCard(receiver)
+	sender.RemoteCard = receiver
+	err = sender.RemoteCard.ConnectToCard("")
 	if err != nil {
 		fmt.Println("error during pairing with counterparty")
 		fmt.Println(err)
