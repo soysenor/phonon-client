@@ -3,6 +3,7 @@ package chain
 import (
 	"errors"
 	"github.com/GridPlus/phonon-client/model"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type BlockchainClient struct {
@@ -25,4 +26,12 @@ func DepositToPhonons(phonons []*model.Phonon) error {
 
 	//Check for confirmation
 	return nil
+}
+
+/*CreateDepositTransaction takes a list of phonons and forms a transaction to deposit assets into them
+on the specified chain*/
+func CreateDepositTransaction(phonons *model.Phonon) ([]byte, error) {
+	types.TxData{}
+	types.NewTx()
+
 }

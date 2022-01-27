@@ -319,7 +319,6 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 Creates the required phonons, deposits them using the configured service for the asset
 and upon success sets their descriptors*/
 func (s *Session) DepositPhonons(currencyType model.CurrencyType, denoms []model.Denomination) (phonons []*model.Phonon, err error) {
-
 	for _, denom := range denoms {
 		p := &model.Phonon{}
 		p.KeyIndex, p.PubKey, err = s.CreatePhonon()
@@ -350,3 +349,5 @@ func (s *Session) DepositPhonons(currencyType model.CurrencyType, denoms []model
 	}
 	return phonons, nil
 }
+
+func (s *Session)
