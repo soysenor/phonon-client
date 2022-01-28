@@ -79,25 +79,35 @@ func initDepositPhonons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var depositPhononReq struct {
-		CurrencyType model.CurrencyType
-		Denoms       []model.Denomination
+		CurrencyType  model.CurrencyType
+		Denominations []int
 	}
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Error("unable to parse request body")
+		log.Error("unable to parse request body. err: ", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	err = json.Unmarshal(reqBody, &depositPhononReq)
 	if err != nil {
-		log.Error("unable to parse request JSON body")
+		log.Error("unable to parse request JSON body. err: ", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denoms)
+	var denoms []model.Denomination
+	for _, i := range depositPhononReq.Denominations {
+		d, err := model.NewDenomination(i)
+		if err != nil {
+			log.Error("error converting integer denomination request to denomination. err: ", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		denoms = append(denoms, d)
+	}
+	log.Debug("depositPhononReq: ", depositPhononReq)
+	log.Debug("denoms: ", denoms)
+	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, denoms)
 	if err != nil {
-		log.Error("unable to create phonons for deposit")
+		log.Error("unable to create phonons for deposit. err: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -319,18 +319,23 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 Creates the required phonons, deposits them using the configured service for the asset
 and upon success sets their descriptors*/
 func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []model.Denomination) (phonons []*model.Phonon, err error) {
-	log.Debug("running InitDepositPhonons")
+	log.Debugf("running InitDepositPhonons with data: %v, %v\n", currencyType, denoms)
+	if !s.verified() {
+		return nil, card.ErrPINNotEntered
+	}
 	for _, denom := range denoms {
 		p := &model.Phonon{}
 		p.KeyIndex, p.PubKey, err = s.CreatePhonon()
-		log.Debug("ran CreatPhonons in InitDepositLoop")
+		log.Debug("ran CreatePhonons in InitDepositLoop")
 		if err != nil {
+			log.Error("failed to create phonon for deposit: ", err)
 			return nil, err
 		}
 		p.Denomination = denom
 		p.CurrencyType = currencyType
 		p.Address, err = chain.DeriveAddress(p)
 		if err != nil {
+			log.Error("failed to derive address for phonon deposit: ", err)
 			return nil, err
 		}
 
