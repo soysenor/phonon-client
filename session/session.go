@@ -62,15 +62,13 @@ func NewSession(storage model.PhononCard) (s *Session, err error) {
 func (s *Session) SetPaired(status bool) {
 }
 
+
 func (s *Session) GetName() string {
 	if s.Cert == nil {
 		return "unknown"
 	}
 	if s.Cert.PubKey != nil {
-		hexString := util.ECCPubKeyToHexString(s.identityPubKey)
-		if len(hexString) >= 16 {
-			return hexString[:16]
-		}
+		return util.CardIDFromPubKey(s.identityPubKey)
 	}
 	return "unknown"
 }

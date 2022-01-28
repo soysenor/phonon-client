@@ -74,7 +74,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = session.out.Encode(err.Error())
 		if err != nil {
-			log.Error("faied sending cert validation failure response: ", err)
+			log.Error("failed sending cert validation failure response: ", err)
 			return
 		}
 	}
@@ -172,12 +172,11 @@ func (c *clientSession) ValidateClient() (bool, error) {
 
 	//Cert has been validated, register clientSession with server and grab card name
 	c.validated = true
-	hexString := util.ECCPubKeyToHexString(key)
-	name := hexString[:16]
+	name := util.CardIDFromPubKey(key)
 	c.Name = name
 	clientSessions[name] = c
-	c.out.Encode(model.Message{
-		Name:    model.MessageIdentifiedWithServer,
+	c.out.Encode(Message{
+		Name:    MessageIdentifiedWithServer,
 		Payload: []byte(name),
 	})
 
@@ -241,39 +240,6 @@ func (c *clientSession) provideCertificate() {
 	}
 	return
 }
-
-//Start of alternate implementation using pairing map
-// func (c *clientSession) ConnectCard2Card(counterpartyID string) {
-// 	for {
-// 		if counterparty, ok := clientSessions[counterpartyID]; ok {
-// 			log.Info("counterparty found, connecting %v to %v", c.Name, counterparty)
-// 			//generate hash representing pairing
-// 			//TODO: make this more bulletproof, collisions are semi possible
-// 			var pairingData []byte
-// 			var p pairing
-// 			if c.Name < counterparty.Name {
-// 				pairingData = append([]byte(c.Name), []byte(counterparty.Name)...)
-// 				p = pairing{
-// 					initiator: c,
-// 					responder: counterparty,
-// 				}
-// 			} else {
-// 				pairingData = append([]byte(counterparty.Name), []byte(c.Name)...)
-// 				p = pairing{
-// 					initiator: counterparty,
-// 					responder: c,
-// 				}
-// 			}
-// 			pairingHash := sha256.Sum256(pairingData)
-// 			pairingID := string(pairingHash[:])
-// 			pairings[pairingID] = p
-
-// 		}
-// 		time.Sleep(250 * time.Millisecond)
-// 	}
-
-// }
-
 func (c *clientSession) ConnectCard2Card(msg model.Message) {
 	log.Infof("attempting to connect card %s to card %s\n", c.Name, string(msg.Payload))
 	counterparty, ok := clientSessions[string(msg.Payload)]

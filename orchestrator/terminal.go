@@ -63,47 +63,6 @@ func (t *PhononTerminal) ListSessions() []*session.Session {
 	return t.sessions
 }
 
-/*
-func (t *PhononTerminal) ConnectRemoteSession(session *session.Session, cardURL string) error {
-	u, err := url.Parse(cardURL)
-	if err != nil {
-		return fmt.Errorf("unable to parse url for card connection: %s", err.Error())
-	}
-	pathSeparated := strings.Split(u.Path, "/")
-	counterpartyID := pathSeparated[len(pathSeparated)-1]
-	log.Info("connecting")
-	//guard
-	remConn, err := remote.Connect(session, fmt.Sprintf("https://%s/phonon", u.Host), true)
-	if err != nil {
-		return fmt.Errorf("unable to connect to remote session: %s", err.Error())
-	}
-	log.Info("successfully connected to remote server. Establishing connection to peer")
-	err = remConn.ConnectToCard(counterpartyID)
-	if err != nil {
-		log.Info("returning error from ConnectRemoteSession")
-		return err
-	}
-	if counterpartyID < session.GetName() {
-		paired := make(chan bool, 1)
-		go func() {
-			for {
-				if session.IsPairedToCard() {
-					paired <- true
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-		}()
-		select {
-		case <-time.After(30 * time.Second):
-			return errors.New("pairing timed out")
-		case <-paired:
-			return nil
-		}
-	}
-	err = session.PairWithRemoteCard(remConn)
-	return err
-}
-*/
 func (t *PhononTerminal) SetReceiveMode(sessionIndex int) {
 	// set this session to accept incoming secureConnections
 }

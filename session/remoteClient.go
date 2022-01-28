@@ -333,15 +333,22 @@ func (c *RemoteConnection) GetCertificate() (*cert.CardCertificate, error) {
 func (c *RemoteConnection) ConnectToCard(cardID string) error {
 	log.Info("sending requestConnectCard2Card message")
 	c.sendMessage(model.RequestConnectCard2Card, []byte(cardID))
+	var err error
 	select {
 	case <-time.After(10 * time.Second):
 		log.Error("Connection Timed out Waiting for peer")
 		c.conn.Close()
-		return ErrTimeout
+		err = ErrTimeout
 	case <-c.connectedToCardChan:
 		c.pairingStatus = model.StatusConnectedToCard
 		return nil
 	}
+	cert, err := c.GetCertificate()
+	if err != nil {
+		return err
+	}
+	c.remoteCertificate = cert
+	return nil
 }
 
 func (c *RemoteConnection) ReceivePhonons(PhononTransfer []byte) error {
