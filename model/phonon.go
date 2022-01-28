@@ -21,14 +21,16 @@ type Phonon struct {
 	Denomination          Denomination
 	CurrencyType          CurrencyType
 	ExtendedTLV           []tlv.TLV
+	Address               string //chain specific attribute not stored on card
 }
 
 func (p *Phonon) String() string {
-	return fmt.Sprintf("KeyIndex: %v\nDenomination: %v\ncurrencyType: %v\nPubKey: %v\nCurveType: %v\nSchemaVersion: %v\nExtendedSchemaVersion: %v\nExtendedTLV: %v\n",
+	return fmt.Sprintf("KeyIndex: %v\nDenomination: %v\ncurrencyType: %v\nPubKey: %v\nAddress: %v\nCurveType: %v\nSchemaVersion: %v\nExtendedSchemaVersion: %v\nExtendedTLV: %v\n",
 		p.KeyIndex,
 		p.Denomination,
 		p.CurrencyType,
 		util.ECCPubKeyToHexString(p.PubKey),
+		p.Address,
 		p.CurveType,
 		p.SchemaVersion,
 		p.ExtendedSchemaVersion,
@@ -38,6 +40,7 @@ func (p *Phonon) String() string {
 type UserRequestedPhonon struct {
 	KeyIndex              uint16
 	PubKey                string //pubkey as hexstring
+	Address               string //Chain specific address as hexstring
 	SchemaVersion         uint8
 	ExtendedSchemaVersion uint8
 	Denomination          int
@@ -49,6 +52,7 @@ func (p *Phonon) MarshalJSON() ([]byte, error) {
 	userReqPhonon := &UserRequestedPhonon{
 		KeyIndex:              p.KeyIndex,
 		PubKey:                util.ECCPubKeyToHexString(p.PubKey),
+		Address:               p.Address,
 		SchemaVersion:         p.SchemaVersion,
 		ExtendedSchemaVersion: p.ExtendedSchemaVersion,
 		Denomination:          p.Denomination.Value(),

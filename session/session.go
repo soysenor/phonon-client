@@ -315,10 +315,10 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 	return nil
 }
 
-/*DepositPhonons takes a currencyType and a map of denominations to quantity,
+/*InitDepositPhonons takes a currencyType and a map of denominations to quantity,
 Creates the required phonons, deposits them using the configured service for the asset
 and upon success sets their descriptors*/
-func (s *Session) DepositPhonons(currencyType model.CurrencyType, denoms []model.Denomination) (phonons []*model.Phonon, err error) {
+func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []model.Denomination) (phonons []*model.Phonon, err error) {
 	for _, denom := range denoms {
 		p := &model.Phonon{}
 		p.KeyIndex, p.PubKey, err = s.CreatePhonon()
@@ -327,27 +327,33 @@ func (s *Session) DepositPhonons(currencyType model.CurrencyType, denoms []model
 		}
 		p.Denomination = denom
 		p.CurrencyType = currencyType
-		phonons = append(phonons, p)
-	}
-	err = chain.DepositToPhonons(phonons)
-	if err != nil {
-		//If deposit fails, cleanup phonons that weren't able to be encumbered on chain
-		for _, p := range phonons {
-			_, err := s.DestroyPhonon(p.KeyIndex)
-			if err != nil {
-				log.Error("unable to destroy unconfirmed phonon at KeyIndex %v. err: ", p.KeyIndex, err)
-			}
-		}
-		return nil, err
-	}
-	for _, p := range phonons {
-		err = s.SetDescriptor(p)
+		p.Address, err = chain.DeriveAddress(p)
 		if err != nil {
-			//TODO: work out what to do in the event that only some descriptors fail
-			log.Error("unable to set descriptor on deposited phonon at KeyIndex: %v. err: ", p.KeyIndex, err)
+			return nil, err
 		}
+
+		phonons = append(phonons, p)
 	}
 	return phonons, nil
 }
 
-func (s *Session)
+//Check outcome of above somehow
+// 	if err != nil {
+// 		//If deposit fails, cleanup phonons that weren't able to be encumbered on chain
+// 		for _, p := range phonons {
+// 			_, err := s.DestroyPhonon(p.KeyIndex)
+// 			if err != nil {
+// 				log.Error("unable to destroy unconfirmed phonon at KeyIndex %v. err: ", p.KeyIndex, err)
+// 			}
+// 		}
+// 		return nil, err
+// 	}
+// 	for _, p := range phonons {
+// 		err = s.SetDescriptor(p)
+// 		if err != nil {
+// 			//TODO: work out what to do in the event that only some descriptors fail
+// 			log.Error("unable to set descriptor on deposited phonon at KeyIndex: %v. err: ", p.KeyIndex, err)
+// 		}
+// 	}
+// 	return phonons, nil
+// }

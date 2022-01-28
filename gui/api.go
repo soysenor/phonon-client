@@ -15,6 +15,7 @@ import (
 	"github.com/GridPlus/phonon-client/session"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 )
 
 //go:embed swagger.yaml
@@ -39,6 +40,7 @@ func Server() {
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/send", send)
 	r.HandleFunc("/cards/{sessionID}/phonon/create", createPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", redeemPhonon)
+	r.HandleFunc("/cards/{sessionID}/phonon/depositPhonons", initDepositPhonons)
 	// api docs
 	http.Handle("/swagger/", http.FileServer(http.FS(swagger)))
 	r.HandleFunc("/swagger.json", serveapi)
@@ -66,6 +68,43 @@ func createPhonon(w http.ResponseWriter, r *http.Request) {
 		PubKey string `json:"pubkey"`
 	}{Index: index,
 		PubKey: pub})
+}
+
+func initDepositPhonons(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sess, err := selectSession(vars)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	var depositPhononReq struct {
+		CurrencyType model.CurrencyType
+		Denoms       []model.Denomination
+	}
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = json.Unmarshal(reqBody, &depositPhononReq)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denoms)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	enc := json.NewEncoder(w)
+	err = enc.Encode(phonons)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Error("unable to encode outgoing depositPhonons response")
+		return
+	}
+
 }
 
 func serveapi(w http.ResponseWriter, r *http.Request) {
