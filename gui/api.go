@@ -40,13 +40,13 @@ func Server() {
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/send", send)
 	r.HandleFunc("/cards/{sessionID}/phonon/create", createPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", redeemPhonon)
-	r.HandleFunc("/cards/{sessionID}/phonon/depositPhonons", initDepositPhonons)
+	r.HandleFunc("/cards/{sessionID}/phonon/initDeposit", initDepositPhonons)
 	// api docs
 	http.Handle("/swagger/", http.FileServer(http.FS(swagger)))
 	r.HandleFunc("/swagger.json", serveapi)
 
 	http.Handle("/", r)
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func createPhonon(w http.ResponseWriter, r *http.Request) {
@@ -74,6 +74,7 @@ func initDepositPhonons(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sess, err := selectSession(vars)
 	if err != nil {
+		log.Error("session not found")
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -83,25 +84,28 @@ func initDepositPhonons(w http.ResponseWriter, r *http.Request) {
 	}
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error("unable to parse request body")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	err = json.Unmarshal(reqBody, &depositPhononReq)
 	if err != nil {
+		log.Error("unable to parse request JSON body")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denoms)
 	if err != nil {
+		log.Error("unable to create phonons for deposit")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	enc := json.NewEncoder(w)
 	err = enc.Encode(phonons)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Error("unable to encode outgoing depositPhonons response")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

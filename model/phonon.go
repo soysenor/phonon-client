@@ -22,6 +22,7 @@ type Phonon struct {
 	CurrencyType          CurrencyType
 	ExtendedTLV           []tlv.TLV
 	Address               string //chain specific attribute not stored on card
+	AddressType           uint8  //chain specific address type identifier
 }
 
 func (p *Phonon) String() string {
@@ -41,6 +42,7 @@ type UserRequestedPhonon struct {
 	KeyIndex              uint16
 	PubKey                string //pubkey as hexstring
 	Address               string //Chain specific address as hexstring
+	AddressType           uint8
 	SchemaVersion         uint8
 	ExtendedSchemaVersion uint8
 	Denomination          int
