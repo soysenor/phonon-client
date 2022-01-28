@@ -62,15 +62,13 @@ func NewSession(storage model.PhononCard) (s *Session, err error) {
 func (s *Session) SetPaired(status bool) {
 }
 
+
 func (s *Session) GetName() string {
 	if s.Cert == nil {
 		return "unknown"
 	}
 	if s.Cert.PubKey != nil {
-		hexString := util.ECCPubKeyToHexString(s.identityPubKey)
-		if len(hexString) >= 16 {
-			return hexString[:16]
-		}
+		return util.CardIDFromPubKey(s.identityPubKey)
 	}
 	return "unknown"
 }
@@ -249,6 +247,11 @@ func (s *Session) SendPhonons(keyIndices []uint16) error {
 	if !s.verified() && s.RemoteCard != nil {
 		return ErrCardNotPairedToCard
 	}
+	err := s.RemoteCard.VerifyPaired()
+	if err != nil {
+		return err
+	}
+
 	phononTransferPacket, err := s.cs.SendPhonons(keyIndices, false)
 	if err != nil {
 		return err
@@ -299,12 +302,14 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 	if err != nil {
 		return err
 	}
+	log.Debug("sending card pair request")
 	cardPairData, err := remoteCard.CardPair(initPairingData)
 	if err != nil {
 		return err
 	}
 	cardPair2Data, err := s.CardPair2(cardPairData)
 	if err != nil {
+		log.Debug("PairWithRemoteCard failed at cardPair2. err: ", err)
 		return err
 	}
 	err = remoteCard.FinalizeCardPair(cardPair2Data)
