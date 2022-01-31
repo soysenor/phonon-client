@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"github.com/GridPlus/phonon-client/card"
 	"github.com/spf13/cobra"
@@ -50,8 +49,8 @@ func mineNativePhonons() {
 	}
 	for {
 		data, err := cs.MineNativePhonon()
-		if err == errors.New("9001") {
-			fmt.Println("mining failed to find phonon")
+		if err == card.ErrMiningFailed {
+			fmt.Println("mining failed to find phonon. repeating attempt...")
 		} else if err != nil {
 			fmt.Println("error mining phonon. err: ", err)
 			return
