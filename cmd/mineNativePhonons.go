@@ -47,6 +47,11 @@ func mineNativePhonons() {
 		fmt.Println("could not connect to card. err: ", err)
 		return
 	}
+	_, _, _, err = cs.Select()
+	if err != nil {
+		fmt.Println("unable to select applet: ", err)
+		return
+	}
 	for {
 		data, err := cs.MineNativePhonon()
 		if err == card.ErrMiningFailed {
