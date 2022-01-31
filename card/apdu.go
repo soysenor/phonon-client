@@ -2,6 +2,7 @@ package card
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 
 	"github.com/GridPlus/keycard-go"
@@ -37,6 +38,7 @@ const (
 	InsSetFriendlyName    = 0x57
 	InsReceiveInvoice     = 0x55
 	InsGetAvailableMemory = 0x99
+	InsMineNativePhonon   = 0x04
 
 	// tags
 	TagSelectAppInfo           = 0xA4
@@ -106,6 +108,7 @@ const (
 	SW_WRONG_DATA                     = 0x6A80
 	SW_WRONG_LENGTH                   = 0x6700
 	SW_WRONG_P1P2                     = 0x6B00
+	SW_MINING_FAILED                  = 0x9001
 )
 
 type Command struct {
@@ -117,9 +120,12 @@ type CardErrors map[int]string
 
 func (cmd *Command) HumanReadableErr(res *apdu.Response) error {
 	var ret error
-	errormsg, exists := cmd.PossibleErrs[int(res.Sw)]
+	var err error
+	err, exists := cmd.PossibleErrs[int(res.Sw)]
 	if exists {
-		ret = fmt.Errorf(errormsg)
+		ret = err
+	} else if res.Sw != SW_NO_ERROR {
+		return errors.New("unspecified error for command")
 	}
 	return ret
 }
@@ -579,5 +585,20 @@ func NewCommandGetAvailableMemory() *Command {
 			0x00,
 			nil,
 		),
+	}
+}
+
+func NewCommandMineNativePhonon() *Command {
+	return &Command{
+		ApduCmd: apdu.NewCommand(
+			globalplatform.ClaGp,
+			InsMineNativePhonon,
+			0x00,
+			0x00,
+			nil,
+		),
+		PossibleErrs: map[int]string{
+			SW_MINING_FAILED: "native phonon mining failed to find phonon",
+		},
 	}
 }

@@ -901,3 +901,22 @@ func (cs *PhononCommandSet) GetAvailableMemory() (persistentMem int, onResetMem 
 	}
 	return persistentMem, onResetMem, onDeselectMem, nil
 }
+
+func (cs *PhononCommandSet) MineNativePhonon() ([]byte, error) {
+	log.Debug("sending MINE_NATIVE_PHONON command")
+	cmd := NewCommandMineNativePhonon()
+	rawResp, err := cs.c.Send(cmd.ApduCmd)
+	if err != nil {
+		return nil, err
+	}
+	//TODO move this part of the pattern inside of c.Send() for consistency with rest of error checking
+	resp, err := ParseResponseWithErrCheck(cmd, append(rawResp.Data, []byte{rawResp.Sw1, rawResp.Sw2}...))
+	if err != nil {
+		return nil, err
+	}
+	// nativePhonon, err := parseMineNativePhononResponse(resp.Data)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return resp.Data, nil
+}
