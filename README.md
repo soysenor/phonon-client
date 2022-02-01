@@ -35,7 +35,9 @@ go run main/phonon.go init
 ## Requirements:
 - a go compiler
 - a c compiler for whatever architecture you are compiling for
-- go stringer tool. Install with below command:
+
+## Dependencies
+The build depends on the go stringer tool to print certain variables correctly. Install with below command:
 
 ```go get -u -a golang.org/x/tools/cmd/stringer```
 ## Process
