@@ -37,7 +37,7 @@ const (
 	InsSetFriendlyName    = 0x57
 	InsReceiveInvoice     = 0x55
 	InsGetAvailableMemory = 0x99
-	InsMineNativePhonon   = 0x04
+	InsMineNativePhonon   = 0x40
 
 	// tags
 	TagSelectAppInfo           = 0xA4

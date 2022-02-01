@@ -35,6 +35,9 @@ go run main/phonon.go init
 ## Requirements:
 - a go compiler
 - a c compiler for whatever architecture you are compiling for
+- go stringer tool. Install with below command:
+
+```go get -u -a golang.org/x/tools/cmd/stringer```
 ## Process
 Build for your local machine architecture
 ```
@@ -47,5 +50,5 @@ make build-windows
 ```
 note: for windows compilation from mac or linux, you will need to install mingw-64 from your favorite package manager
 
-# License 
+# License
 The source code files in this repository are license under the terms of the Mozilla Public License 2.0

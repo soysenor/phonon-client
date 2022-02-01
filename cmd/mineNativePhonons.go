@@ -52,7 +52,8 @@ func mineNativePhonons() {
 		fmt.Println("unable to select applet: ", err)
 		return
 	}
-	for {
+	for i := 1; i > 0; i++ {
+		fmt.Println("mining attempt #", i)
 		data, err := cs.MineNativePhonon()
 		if err == card.ErrMiningFailed {
 			fmt.Println("mining failed to find phonon. repeating attempt...")
@@ -60,7 +61,8 @@ func mineNativePhonons() {
 			fmt.Println("error mining phonon. err: ", err)
 			return
 		} else {
-			fmt.Printf("mined native phonon with raw data:\n%X", data)
+			fmt.Printf("mined native phonon after %v attempts with raw data:\n%X", i, data)
+			return
 		}
 	}
 }
