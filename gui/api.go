@@ -120,16 +120,9 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 		CurrencyType  model.CurrencyType
 		Denominations []int
 	}
-	reqBody, err := ioutil.ReadAll(r.Body)
+	err = json.NewDecoder(r.Body).Decode(&depositPhononReq)
 	if err != nil {
-		log.Error("unable to parse request body. err: ", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	err = json.Unmarshal(reqBody, &depositPhononReq)
-	if err != nil {
-		log.Error("unable to parse request JSON body. err: ", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Error("unable to decode initDeposit request")
 		return
 	}
 	var denoms []model.Denomination
@@ -153,6 +146,34 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 	err = enc.Encode(phonons)
 	if err != nil {
 		log.Error("unable to encode outgoing depositPhonons response")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (apiSession apiSession) FinalizeDepositPhonons(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sess, err := apiSession.sessionFromMuxVars(vars)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	var depositConfirmations []session.DepositConfirmation
+	err = json.NewDecoder(r.Body).Decode(&depositConfirmations)
+	if err != nil {
+		log.Error("unable to decode depositConfirmations json")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ret, err := sess.FinalizeDepositPhonons(depositConfirmations)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	enc := json.NewEncoder(w)
+	err = enc.Encode(ret)
+	if err != nil {
+		log.Error("unable to encode outgoing deposit confirmation response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -400,7 +421,7 @@ func (apiSession apiSession) sessionFromMuxVars(p map[string]string) (*session.S
 	sessionName, ok := p["sessionID"]
 	if !ok {
 		fmt.Println("unable to find session")
-		return nil, fmt.Errorf("Unable to find sesion")
+		return nil, fmt.Errorf("unable to find sesion")
 	}
 	sessions := apiSession.t.ListSessions()
 	var targetSession *session.Session
@@ -411,7 +432,7 @@ func (apiSession apiSession) sessionFromMuxVars(p map[string]string) (*session.S
 		}
 	}
 	if targetSession == nil {
-		return nil, fmt.Errorf("Unable to find sesion")
+		return nil, fmt.Errorf("unable to find sesion")
 	}
 	return targetSession, nil
 }

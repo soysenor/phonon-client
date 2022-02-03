@@ -62,7 +62,6 @@ func NewSession(storage model.PhononCard) (s *Session, err error) {
 func (s *Session) SetPaired(status bool) {
 }
 
-
 func (s *Session) GetName() string {
 	if s.Cert == nil {
 		return "unknown"
@@ -347,6 +346,46 @@ func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []m
 		phonons = append(phonons, p)
 	}
 	return phonons, nil
+}
+
+type DepositConfirmation struct {
+	phonon           *model.Phonon
+	confirmedOnChain bool
+	confirmedOnCard  bool
+}
+
+func (s *Session) FinalizeDepositPhonons(confirmations []DepositConfirmation) ([]DepositConfirmation, error) {
+	log.Debug("running finalizeDepositPhonon")
+	if !s.verified() {
+		return nil, card.ErrPINNotEntered
+	}
+	var lastErr error
+	for _, v := range confirmations {
+		err := s.FinalizeDepositPhonon(v)
+		if err != nil {
+			lastErr = err
+			v.confirmedOnCard = false
+		} else {
+			v.confirmedOnCard = true
+		}
+	}
+	return confirmations, lastErr
+}
+
+func (s *Session) FinalizeDepositPhonon(dc DepositConfirmation) error {
+	if dc.confirmedOnChain {
+		err := s.SetDescriptor(dc.phonon)
+		if err != nil {
+			log.Error("unable to finalize deposit by setting descriptor for phonon: ", dc.phonon)
+			return err
+		}
+	} else {
+		_, err := s.DestroyPhonon(dc.phonon.KeyIndex)
+		if err != nil {
+			log.Error("unable to clean up deposit failure by destroying phonon: ", dc.phonon)
+		}
+	}
+	return nil
 }
 
 //Check outcome of above somehow
