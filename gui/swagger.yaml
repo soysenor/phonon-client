@@ -248,6 +248,42 @@ paths:
       required: true
       schema:
         $ref: "#/definitions/DepositRequest"
+  /cards/{sessionID}/phonon/finalizeDeposit:
+    post:
+      tags:
+      - "phonons"
+      summary: "finalize a phonon deposit by confirming success or failure of on chain deposit transaction"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      responses:
+        "404":
+          description: "status not found"
+        "400":
+          description: "could not parse request"
+        "500":
+          description: "failed to finalize deposit"
+        "200":
+          description: "deposit finalized"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/DepositConfirmation"
+      parameters:
+      - in: "path"
+        required: true
+        name: sessionID
+        type: string
+        description: "sessionID of connected card"
+      - in: "body"
+        name: "body"
+        description: "phonons to be finalized along with status of on chain deposit transaction"
+        required: true
+        schema:
+          type: "array"
+          items:
+            $ref: "#/definitions/DepositConfirmation"
 
 definitions:
   Phonon:
@@ -278,4 +314,13 @@ definitions:
         type: "array"
         items:
           type: "integer"
+  DepositConfirmation:
+    type: object
+    properties:
+      Phonon:
+        $ref: "#/definitions/Phonon"
+      ConfirmedOnChain:
+        type: "boolean"
+      ConfirmedOnCard:
+        type: "boolean"
 

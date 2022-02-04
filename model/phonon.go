@@ -3,6 +3,7 @@ package model
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,7 +39,8 @@ func (p *Phonon) String() string {
 		p.ExtendedTLV)
 }
 
-type UserRequestedPhonon struct {
+//Phonon data structured for display to the user an
+type PhononJSON struct {
 	KeyIndex              uint16
 	PubKey                string //pubkey as hexstring
 	Address               string //Chain specific address as hexstring
@@ -50,8 +52,40 @@ type UserRequestedPhonon struct {
 	//TODO extendedTLV
 }
 
+//Unmarshals a PhononUserView into an internal phonon representation
+func (p *Phonon) UnmarshalJSON(b []byte) error {
+	phuv := PhononJSON{}
+	err := json.Unmarshal(b, &phuv)
+	if err != nil {
+		return err
+	}
+	p.KeyIndex = phuv.KeyIndex
+	//Convert hexstring pubkey to *ecdsa.PublicKey
+	pubKeyBytes, err := hex.DecodeString(phuv.PubKey)
+	if err != nil {
+		return err
+	}
+	p.PubKey, err = util.ParseECCPubKey(pubKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	p.Address = phuv.Address
+	p.AddressType = phuv.AddressType
+	p.SchemaVersion = phuv.SchemaVersion
+	p.ExtendedSchemaVersion = phuv.ExtendedSchemaVersion
+	//Convert int to model.Denomination
+	p.Denomination, err = NewDenomination(phuv.Denomination)
+	if err != nil {
+		return err
+	}
+	p.CurrencyType = CurrencyType(phuv.CurrencyType)
+
+	return nil
+}
+
 func (p *Phonon) MarshalJSON() ([]byte, error) {
-	userReqPhonon := &UserRequestedPhonon{
+	userReqPhonon := &PhononJSON{
 		KeyIndex:              p.KeyIndex,
 		PubKey:                util.ECCPubKeyToHexString(p.PubKey),
 		Address:               p.Address,

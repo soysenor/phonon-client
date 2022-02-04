@@ -349,9 +349,9 @@ func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []m
 }
 
 type DepositConfirmation struct {
-	phonon           *model.Phonon
-	confirmedOnChain bool
-	confirmedOnCard  bool
+	Phonon           *model.Phonon
+	ConfirmedOnChain bool
+	ConfirmedOnCard  bool
 }
 
 func (s *Session) FinalizeDepositPhonons(confirmations []DepositConfirmation) ([]DepositConfirmation, error) {
@@ -364,25 +364,25 @@ func (s *Session) FinalizeDepositPhonons(confirmations []DepositConfirmation) ([
 		err := s.FinalizeDepositPhonon(v)
 		if err != nil {
 			lastErr = err
-			v.confirmedOnCard = false
+			v.ConfirmedOnCard = false
 		} else {
-			v.confirmedOnCard = true
+			v.ConfirmedOnCard = true
 		}
 	}
 	return confirmations, lastErr
 }
 
 func (s *Session) FinalizeDepositPhonon(dc DepositConfirmation) error {
-	if dc.confirmedOnChain {
-		err := s.SetDescriptor(dc.phonon)
+	if dc.ConfirmedOnChain {
+		err := s.SetDescriptor(dc.Phonon)
 		if err != nil {
-			log.Error("unable to finalize deposit by setting descriptor for phonon: ", dc.phonon)
+			log.Error("unable to finalize deposit by setting descriptor for phonon: ", dc.Phonon)
 			return err
 		}
 	} else {
-		_, err := s.DestroyPhonon(dc.phonon.KeyIndex)
+		_, err := s.DestroyPhonon(dc.Phonon.KeyIndex)
 		if err != nil {
-			log.Error("unable to clean up deposit failure by destroying phonon: ", dc.phonon)
+			log.Error("unable to clean up deposit failure by destroying phonon: ", dc.Phonon)
 		}
 	}
 	return nil

@@ -68,6 +68,7 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	r.HandleFunc("/cards/{sessionID}/phonon/create", session.createPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", session.redeemPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/initDeposit", session.initDepositPhonons)
+	r.HandleFunc("/cards/{sessionID}/phonon/finalizeDeposit", session.finalizeDepositPhonons)
 	// api docs
 	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/", http.FileServer(http.FS(swagger))))
 	r.HandleFunc("/swagger.json", serveAPIFunc(port))
@@ -151,20 +152,22 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 	}
 }
 
-func (apiSession apiSession) FinalizeDepositPhonons(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) finalizeDepositPhonons(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sess, err := apiSession.sessionFromMuxVars(vars)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+
 	var depositConfirmations []session.DepositConfirmation
 	err = json.NewDecoder(r.Body).Decode(&depositConfirmations)
 	if err != nil {
-		log.Error("unable to decode depositConfirmations json")
+		log.Error("unable to decode depositConfirmations json. err: ", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	ret, err := sess.FinalizeDepositPhonons(depositConfirmations)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
