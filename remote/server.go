@@ -74,7 +74,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = session.out.Encode(err.Error())
 		if err != nil {
-			log.Error("faied sending cert validation failure response: ", err)
+			log.Error("failed sending cert validation failure response: ", err)
 			return
 		}
 	}
