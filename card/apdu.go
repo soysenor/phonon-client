@@ -15,29 +15,30 @@ const (
 	maxAPDULength = 256
 
 	// instructions
-	InsIdentifyCard       = 0x14
-	InsLoadCert           = 0x15
-	InsVerifyPIN          = 0x20
-	InsChangePIN          = 0x21
-	InsCreatePhonon       = 0x30
-	InsSetDescriptor      = 0x31
-	InsListPhonons        = 0x32
-	InsGetPhononPubKey    = 0x33
-	InsDestroyPhonon      = 0x34
-	InsSendPhonons        = 0x35
-	InsRecvPhonons        = 0x36
-	InsSetRecvList        = 0x37
-	InsTransactionAck     = 0x38
-	InsInitCardPairing    = 0x50
-	InsCardPair           = 0x51
-	InsCardPair2          = 0x52
-	InsFinalizeCardPair   = 0x53
-	InsGenerateInvoice    = 0x54
-	InsGetFriendlyName    = 0x56
-	InsSetFriendlyName    = 0x57
-	InsReceiveInvoice     = 0x55
-	InsGetAvailableMemory = 0x99
-	InsMineNativePhonon   = 0x40
+	InsIdentifyCard         = 0x14
+	InsLoadCert             = 0x15
+	InsVerifyPIN            = 0x20
+	InsChangePIN            = 0x21
+	InsCreatePhonon         = 0x30
+	InsSetDescriptor        = 0x31
+	InsListPhonons          = 0x32
+	InsGetPhononPubKey      = 0x33
+	InsDestroyPhonon        = 0x34
+	InsSendPhonons          = 0x35
+	InsRecvPhonons          = 0x36
+	InsSetRecvList          = 0x37
+	InsTransactionAck       = 0x38
+	InsInitCardPairing      = 0x50
+	InsCardPair             = 0x51
+	InsCardPair2            = 0x52
+	InsFinalizeCardPair     = 0x53
+	InsGenerateInvoice      = 0x54
+	InsGetFriendlyName      = 0x56
+	InsSetFriendlyName      = 0x57
+	InsReceiveInvoice       = 0x55
+	InsGetAvailableMemory   = 0x99
+	InsMineNativePhonon     = 0x40
+	InsMineNativeHashPhonon = 0x41 //TODO: choose one of these
 
 	// tags
 	TagSelectAppInfo           = 0xA4
@@ -592,12 +593,19 @@ func NewCommandGetAvailableMemory() *Command {
 	}
 }
 
-func NewCommandMineNativePhonon() *Command {
+//TODO: remove bool
+func NewCommandMineNativePhonon(hashMining bool, difficulty uint8) *Command {
+	var InsTag byte
+	if hashMining {
+		InsTag = InsMineNativeHashPhonon
+	} else {
+		InsTag = InsMineNativePhonon
+	}
 	return &Command{
 		ApduCmd: apdu.NewCommand(
 			globalplatform.ClaGp,
-			InsMineNativePhonon,
-			0x00,
+			InsTag,
+			byte(difficulty),
 			0x00,
 			nil,
 		),

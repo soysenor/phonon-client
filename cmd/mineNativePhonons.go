@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/GridPlus/phonon-client/card"
 	"github.com/spf13/cobra"
+	"time"
 )
 
 // mineNativePhononsCmd represents the mineNativePhonons command
@@ -33,8 +34,13 @@ var mineNativePhononsCmd = &cobra.Command{
 	},
 }
 
+var difficulty uint8
+var hashMining bool
+
 func init() {
 	rootCmd.AddCommand(mineNativePhononsCmd)
+	mineNativePhononsCmd.PersistentFlags().Uint8VarP(&difficulty, "difficulty", "d", 1, "express the desired difficulty of the mining operation, in bytes with leading zeros")
+	mineNativePhononsCmd.PersistentFlags().BoolVarP(&hashMining, "hashMining", "m", false, "set to true to use keypair mining function. default of false uses hash based mining function")
 }
 
 func mineNativePhonons() {
@@ -52,17 +58,29 @@ func mineNativePhonons() {
 		fmt.Println("unable to select applet: ", err)
 		return
 	}
-	for i := 1; i > 0; i++ {
+	var totalTime time.Duration
+	var i int
+	for i = 1; i > 0; i++ {
 		fmt.Println("mining attempt #", i)
-		data, err := cs.MineNativePhonon()
+		start := time.Now()
+		data, err := cs.MineNativePhonon(hashMining, difficulty)
+		elapsed := time.Since(start)
+		totalTime += elapsed
+		fmt.Println("mining iteration duration: ", elapsed)
 		if err == card.ErrMiningFailed {
 			fmt.Println("mining failed to find phonon. repeating attempt...")
 		} else if err != nil {
 			fmt.Println("error mining phonon. err: ", err)
-			return
+			break
 		} else {
-			fmt.Printf("mined native phonon after %v attempts with raw data:\n%X", i, data)
-			return
+			fmt.Printf("mined native phonon after %v attempts with raw data:\n%X\n", i, data)
+			break
 		}
 	}
+	fmt.Printf("\nmining completed with difficult of %v byte(s): \n", difficulty)
+	fmt.Println("total mining attempts: ", i)
+	fmt.Println("mining run elapsed time: ", totalTime)
+	averageTime := time.Duration(float64(totalTime.Nanoseconds()) / float64(i))
+
+	fmt.Println("average iteration time: ", averageTime)
 }

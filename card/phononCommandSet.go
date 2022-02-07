@@ -902,9 +902,13 @@ func (cs *PhononCommandSet) GetAvailableMemory() (persistentMem int, onResetMem 
 	return persistentMem, onResetMem, onDeselectMem, nil
 }
 
-func (cs *PhononCommandSet) MineNativePhonon() ([]byte, error) {
-	log.Debug("sending MINE_NATIVE_PHONON command")
-	cmd := NewCommandMineNativePhonon()
+func (cs *PhononCommandSet) MineNativePhonon(hashMining bool, difficulty uint8) ([]byte, error) {
+	if hashMining {
+		log.Debug("sending MINE_NATIVE_HASH_PHONON command")
+	} else {
+		log.Debug("sending MINE_NATIVE_PHONON command")
+	}
+	cmd := NewCommandMineNativePhonon(hashMining, difficulty)
 	rawResp, err := cs.c.Send(cmd.ApduCmd)
 	if err != nil {
 		return nil, err
