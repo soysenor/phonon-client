@@ -60,8 +60,8 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	r.HandleFunc("/genMock", session.generatemock)
 	r.HandleFunc("/listSessions", session.listSessions)
 	r.HandleFunc("/cards/{sessionID}/unlock", session.unlock)
-	r.HandleFunc("/cards/{sessionID}/jumpboxConnect", session.connectToJumpbox)
-	r.HandleFunc("/cards/{sessionID}/PairWithCard", session.pairWithOpposingCard)
+	r.HandleFunc("/cards/{sessionID}/connect", session.connectToJumpbox)
+	r.HandleFunc("/cards/{sessionID}/pair", session.pairWithOpposingCard)
 	// phonons
 	r.HandleFunc("/cards/{sessionID}/listPhonons", session.listPhonons)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/setDescriptor", session.setDescriptor)
@@ -176,14 +176,19 @@ func (apiSession apiSession) connectToJumpbox(w http.ResponseWriter, r *http.Req
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	jumpboxHost, ok := vars["jumpboxHost"]
-	if !ok {
-		http.Error(w, "Unable to parse JumpboxURL from request", http.StatusBadRequest)
+	req := struct {
+		Url string `json:"url"`
+	}{}
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Unable to parse Jumpbox Host from request", http.StatusBadRequest)
+		return
 	}
 
-	err = sess.ConnectToJumpbox(jumpboxHost)
+	err = sess.ConnectToJumpbox(req.Url)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 }
@@ -201,14 +206,19 @@ func (apiSession apiSession) pairWithOpposingCard(w http.ResponseWriter, r *http
 		return
 	case model.StatusConnectedToBridge, model.StatusConnectedToCard, model.StatusCardPair1Complete, model.StatusCardPair2Complete:
 	}
-	counterpartyID, ok := vars["counterpartyID"]
-	if !ok {
-		http.Error(w, "counterpartyID not included in request", http.StatusBadRequest)
+	req := struct {
+		CardID string `json:"cardID"`
+	}{}
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "counterpartyID unable to be parsed from request", http.StatusBadRequest)
+		return
 	}
 
-	err = sess.PairWithRemoteCard(counterpartyID)
+	err = sess.PairWithRemoteCard(req.CardID)
 	if err != nil {
 		http.Error(w, "Unable to pair with remote card", http.StatusInternalServerError)
+		return
 	}
 }
 
