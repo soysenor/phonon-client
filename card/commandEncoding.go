@@ -118,6 +118,7 @@ func encodeSendPhononsData(keyIndices []uint16) (data []byte, p2Length byte) {
 	return data, p2Length
 }
 
+//TODO: genericize this to use the same Phonon decoder function. Think it's skipping the extended TLV atm
 func parseListPhononsResponse(resp []byte) ([]*model.Phonon, error) {
 	phononCollection, err := tlv.ParseTLVPacket(resp, TagPhononCollection)
 	if err != nil {

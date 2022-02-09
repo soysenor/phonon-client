@@ -21,17 +21,19 @@ type Phonon struct {
 	ExtendedSchemaVersion uint8
 	Denomination          Denomination
 	CurrencyType          CurrencyType
+	ChainID               uint8
 	ExtendedTLV           []tlv.TLV
 	Address               string //chain specific attribute not stored on card
 	AddressType           uint8  //chain specific address type identifier
 }
 
 func (p *Phonon) String() string {
-	return fmt.Sprintf("KeyIndex: %v\nDenomination: %v\ncurrencyType: %v\nPubKey: %v\nAddress: %v\nCurveType: %v\nSchemaVersion: %v\nExtendedSchemaVersion: %v\nExtendedTLV: %v\n",
+	return fmt.Sprintf("KeyIndex: %v\nDenomination: %v\ncurrencyType: %v\nPubKey: %v\nAddress: %v\nChainID: %v\nCurveType: %v\nSchemaVersion: %v\nExtendedSchemaVersion: %v\nExtendedTLV: %v\n",
 		p.KeyIndex,
 		p.Denomination,
 		p.CurrencyType,
 		util.ECCPubKeyToHexString(p.PubKey),
+		p.ChainID,
 		p.Address,
 		p.CurveType,
 		p.SchemaVersion,
@@ -49,7 +51,7 @@ type PhononJSON struct {
 	ExtendedSchemaVersion uint8
 	Denomination          int
 	CurrencyType          int
-	//TODO extendedTLV
+	ChainID               uint8
 }
 
 //Unmarshals a PhononUserView into an internal phonon representation
@@ -80,6 +82,8 @@ func (p *Phonon) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	p.CurrencyType = CurrencyType(phuv.CurrencyType)
+	//idk if this is good
+	p.ChainID = phuv.ChainID
 
 	return nil
 }
@@ -93,6 +97,7 @@ func (p *Phonon) MarshalJSON() ([]byte, error) {
 		ExtendedSchemaVersion: p.ExtendedSchemaVersion,
 		Denomination:          p.Denomination.Value(),
 		CurrencyType:          int(p.CurrencyType),
+		ChainID:               p.ChainID,
 		//TODO extendedTLV
 	}
 	jsonBytes, err := json.Marshal(userReqPhonon)
