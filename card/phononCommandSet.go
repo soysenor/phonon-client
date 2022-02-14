@@ -55,7 +55,10 @@ type PhononCommandSet struct {
 
 func NewPhononCommandSet(c types.Channel) *PhononCommandSet {
 	var err error
-	conf := config.GetConfig().PhononCommandSetConfig
+	conf, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal("could not configure PhononCommandSet")
+	}
 	var level = conf.LogLevel
 
 	if level == log.DebugLevel {
@@ -75,7 +78,7 @@ func NewPhononCommandSet(c types.Channel) *PhononCommandSet {
 		c:               c,
 		sc:              NewSecureChannel(c),
 		ApplicationInfo: &types.ApplicationInfo{},
-		PhononCACert:    conf.PhononCACert,
+		PhononCACert:    conf.AppletCACert,
 	}
 }
 

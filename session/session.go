@@ -36,7 +36,7 @@ var ErrCardNotPairedToCard = errors.New("card not paired with any other card")
 //Creates a new card session, automatically connecting if the card is already initialized with a PIN
 //The next step is to run VerifyPIN to gain access to the secure commands on the card
 func NewSession(storage model.PhononCard) (s *Session, err error) {
-	chainSrv, err := chain.NewChainRouter()
+	chainSrv, err := chain.NewMultiChainRouter()
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func NewSession(storage model.PhononCard) (s *Session, err error) {
 		log.Error("could not run session connect: ", err)
 		return nil, err
 	}
-
+	log.Debug("initialized new applet session")
 	return s, nil
 }
 
