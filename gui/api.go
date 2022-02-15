@@ -182,6 +182,44 @@ func (apiSession apiSession) finalizeDepositPhonons(w http.ResponseWriter, r *ht
 	}
 }
 
+func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
+	sess, err := apiSession.sessionFromMuxVars(mux.Vars(r))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	type redeemPhononRequest struct {
+		P             *model.Phonon
+		RedeemAddress string
+	}
+	var req redeemPhononRequest
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Error("unable to decode redeemPhonons json. err: ", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	transactionData, privKeyString, err := sess.RedeemPhonon(req.P, req.RedeemAddress)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	type redeemPhononResp struct {
+		TransactionData string
+		PrivKeyString   string
+	}
+	resp := &redeemPhononResp{
+		TransactionData: transactionData,
+		PrivKeyString:   privKeyString,
+	}
+	enc := json.NewEncoder(w)
+	err = enc.Encode(resp)
+	if err != nil {
+		log.Error("unable to encode outgoing redeem response")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
 func serveapi(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "swagger.json", time.Time{}, bytes.NewReader(swaggeryaml))
 }
@@ -380,38 +418,39 @@ func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	sess, err := apiSession.sessionFromMuxVars(vars)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	phononIndex, ok := vars["PhononIndex"]
-	if !ok {
-		http.Error(w, "Phonon not found", http.StatusNotFound)
-		return
-	}
-	index, err := strconv.ParseUint(phononIndex, 10, 16)
-	if err != nil {
-		http.Error(w, "Unable to convert index to int:"+err.Error(), http.StatusBadRequest)
-		return
-	}
-	privkey, err := sess.DestroyPhonon(uint16(index))
-	if err != nil {
-		http.Error(w, "Unable to redeem phonon: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	ret := struct {
-		PrivateKey string `json:"privateKey"`
-	}{PrivateKey: fmt.Sprintf("%x", privkey.D)}
-	enc := json.NewEncoder(w)
-	err = enc.Encode(ret)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
+//TODO: Change to exportPhonon or similar description
+// func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
+// 	vars := mux.Vars(r)
+// 	sess, err := apiSession.sessionFromMuxVars(vars)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusNotFound)
+// 		return
+// 	}
+// 	phononIndex, ok := vars["PhononIndex"]
+// 	if !ok {
+// 		http.Error(w, "Phonon not found", http.StatusNotFound)
+// 		return
+// 	}
+// 	index, err := strconv.ParseUint(phononIndex, 10, 16)
+// 	if err != nil {
+// 		http.Error(w, "Unable to convert index to int:"+err.Error(), http.StatusBadRequest)
+// 		return
+// 	}
+// 	privkey, err := sess.DestroyPhonon(uint16(index))
+// 	if err != nil {
+// 		http.Error(w, "Unable to redeem phonon: "+err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// 	ret := struct {
+// 		PrivateKey string `json:"privateKey"`
+// 	}{PrivateKey: fmt.Sprintf("%x", privkey.D)}
+// 	enc := json.NewEncoder(w)
+// 	err = enc.Encode(ret)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// }
 
 func (apiSession apiSession) generatemock(w http.ResponseWriter, r *http.Request) {
 	err := apiSession.t.GenerateMock()
