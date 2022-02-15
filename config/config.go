@@ -14,6 +14,7 @@ type Config struct {
 
 	//EthChainService
 	EthChainServiceApiKey string
+	EthNodeURL            string
 }
 
 type PhononCommandSetConfig struct {
@@ -29,6 +30,7 @@ func DefaultConfig() Config {
 		AppletCACert:          cert.PhononDemoCAPubKey,
 		LogLevel:              log.DebugLevel,
 		EthChainServiceApiKey: "",
+		EthNodeURL:            "",
 	}
 	return conf
 }

@@ -74,10 +74,10 @@ func (mcr *MultiChainRouter) DeriveAddress(p *model.Phonon) (address string, err
 	return chain.DeriveAddress(p)
 }
 
-func (mcr *MultiChainRouter) RedeemPhonon(p *model.Phonon, privKey *ecdsa.PrivateKey, redeemAddress string) (transactionData string, privKeyString string, err error) {
+func (mcr *MultiChainRouter) RedeemPhonon(p *model.Phonon, privKey *ecdsa.PrivateKey, redeemAddress string) (transactionData string, err error) {
 	chain, err := mcr.LoadChainService(p.CurrencyType)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	return chain.RedeemPhonon(p, privKey, redeemAddress)
 }

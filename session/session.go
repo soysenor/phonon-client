@@ -404,12 +404,13 @@ func (s *Session) RedeemPhonon(p *model.Phonon, redeemAddress string) (transacti
 	if err != nil {
 		return "", "", err
 	}
-	transactionData, privKeyString, err = s.chainSrv.RedeemPhonon(p, privKey, redeemAddress)
+	privKeyString = util.ECCPrivKeyToHex(privKey)
+	transactionData, err = s.chainSrv.RedeemPhonon(p, privKey, redeemAddress)
 	if err != nil {
 		return "", privKeyString, nil
 	}
 
-	return "", "", nil
+	return transactionData, privKeyString, nil
 }
 
 //TODO: retry and track progress automatically.

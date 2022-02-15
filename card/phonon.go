@@ -149,7 +149,7 @@ func TLVDecodePublicPhononFields(phononTLV tlv.TLVCollection) (*model.Phonon, er
 		if entry.Tag == TagChainID {
 			//guard parsing against panics
 			if len(entry.Value) == 1 {
-				phonon.ChainID = entry.Value[0]
+				phonon.ChainID = int(entry.Value[0])
 			}
 		}
 	}

@@ -21,7 +21,7 @@ type Phonon struct {
 	ExtendedSchemaVersion uint8
 	Denomination          Denomination
 	CurrencyType          CurrencyType
-	ChainID               uint8
+	ChainID               int //Not currently stored on card
 	ExtendedTLV           []tlv.TLV
 	Address               string //chain specific attribute not stored on card
 	AddressType           uint8  //chain specific address type identifier
@@ -51,7 +51,7 @@ type PhononJSON struct {
 	ExtendedSchemaVersion uint8
 	Denomination          int
 	CurrencyType          int
-	ChainID               uint8
+	ChainID               int
 }
 
 //Unmarshals a PhononUserView into an internal phonon representation
