@@ -66,7 +66,7 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/setDescriptor", session.setDescriptor)
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/send", session.send)
 	r.HandleFunc("/cards/{sessionID}/phonon/create", session.createPhonon)
-	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/redeem", session.redeemPhonon)
+	r.HandleFunc("/cards/{sessionID}/phonon/redeem", session.redeemPhonons)
 	r.HandleFunc("/cards/{sessionID}/phonon/initDeposit", session.initDepositPhonons)
 	r.HandleFunc("/cards/{sessionID}/phonon/finalizeDeposit", session.finalizeDepositPhonons)
 	// api docs
@@ -182,7 +182,7 @@ func (apiSession apiSession) finalizeDepositPhonons(w http.ResponseWriter, r *ht
 	}
 }
 
-func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
+func (apiSession apiSession) redeemPhonons(w http.ResponseWriter, r *http.Request) {
 	sess, err := apiSession.sessionFromMuxVars(mux.Vars(r))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -192,34 +192,42 @@ func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request
 		P             *model.Phonon
 		RedeemAddress string
 	}
-	var req redeemPhononRequest
-	err = json.NewDecoder(r.Body).Decode(&req)
+	var reqs []*redeemPhononRequest
+	err = json.NewDecoder(r.Body).Decode(&reqs)
 	if err != nil {
 		log.Error("unable to decode redeemPhonons json. err: ", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	transactionData, privKeyString, err := sess.RedeemPhonon(req.P, req.RedeemAddress)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	type redeemPhononResp struct {
 		TransactionData string
 		PrivKeyString   string
+		err             string
 	}
-	resp := &redeemPhononResp{
-		TransactionData: transactionData,
-		PrivKeyString:   privKeyString,
+	var resps []*redeemPhononResp
+	for _, req := range reqs {
+		var respErr string
+		transactionData, privKeyString, err := sess.RedeemPhonon(req.P, req.RedeemAddress)
+		//If err capture the error message as a string, else return string value ""
+		if err != nil {
+			respErr = err.Error()
+		}
+		resps = append(resps, &redeemPhononResp{
+			TransactionData: transactionData,
+			PrivKeyString:   privKeyString,
+			err:             respErr,
+		})
 	}
+
 	enc := json.NewEncoder(w)
-	err = enc.Encode(resp)
+	err = enc.Encode(resps)
 	if err != nil {
 		log.Error("unable to encode outgoing redeem response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
+
 func serveapi(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "swagger.json", time.Time{}, bytes.NewReader(swaggeryaml))
 }
