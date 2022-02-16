@@ -20,8 +20,9 @@ import (
 )
 
 type EthChainService struct {
-	APIKey  string
-	NodeURL string
+	APIKey   string
+	NodeURL  string
+	gasLimit uint64
 }
 
 func NewEthChainService() (*EthChainService, error) {
@@ -35,8 +36,9 @@ func NewEthChainService() (*EthChainService, error) {
 	}
 
 	ethchainSrv := &EthChainService{
-		APIKey:  config.EthChainServiceApiKey,
-		NodeURL: config.EthNodeURL,
+		APIKey:   config.EthChainServiceApiKey,
+		NodeURL:  config.EthNodeURL,
+		gasLimit: uint64(21000), //Setting to default magic value for now
 	}
 	log.Debugf("successfully loaded EthChainServiceConfig: %+v", ethchainSrv)
 
@@ -51,89 +53,27 @@ func (eth *EthChainService) DeriveAddress(p *model.Phonon) (address string, err 
 //TODO: Fix all error handling values
 func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.PrivateKey, redeemAddress string) (transactionData string, err error) {
 	//TODO: Check that privKey matches derived pubKey and address
-
-	//Build eth transaction request as hex string
-	fromAccount := accounts.Account{
-		Address: common.HexToAddress(p.Address),
-	}
-
-	log.Debug("fromAccount address: ", p.Address)
-	toAddress := accounts.Account{
-		Address: common.HexToAddress(redeemAddress),
-	}
-
-	//Collect on chain details for redeem
-	//TODO: cache this
 	ctx := context.Background()
 	//Ganache Connection
 	cl, err := ethclient.Dial(eth.NodeURL)
-
 	if err != nil {
 		log.Error("could not dial eth node at")
 		return "", err
 	}
-	nonce, err := cl.PendingNonceAt(ctx, fromAccount.Address)
-	if err != nil {
-		log.Error("could not fetch pending nonce for eth account")
-		return "", err
-	}
-	log.Debug("pending nonce: ", nonce)
-	//Check actual balance of phonon
-	onChainPhononValue, err := cl.PendingBalanceAt(ctx, fromAccount.Address)
-	if err != nil {
-		log.Error("could not fetch on chain Phonon value")
-		return "", err
-	}
-	log.Debug("onChainValue: ", onChainPhononValue)
-	suggestedGasPrice, err := cl.SuggestGasPrice(ctx)
-	if err != nil {
-		log.Error("error fetching suggested gas price: ", err)
-		return "", err
-	}
-	log.Debug("suggest gas price is: ", suggestedGasPrice)
+	//Collect on chain details for redeem
+	nonce, onChainBalance, suggestedGasPrice, err := fetchPreTransactionInfo(cl, ctx, common.HexToAddress(p.Address))
 
-	phononValue := onChainPhononValue
 	//If gas would cost more than the value in the phonon, return error
-	if suggestedGasPrice.Cmp(phononValue) != -1 {
+	if suggestedGasPrice.Cmp(onChainBalance) != -1 {
 		return "", errors.New("phonon not large enough to pay gas for redemption")
 	}
 
-	//London EIP-1559 gas
-	// suggestedGasTipCap, err := cl.SuggestGasTipCap(ctx)
-	// if err != nil {
-	// 	log.Error("error fetching suggested gas tip cap. err: ", err)
-	// 	return "", "", err
-	// }
-	// log.Debug("suggested gas tip cap is: ", suggestedGasTipCap)
-	//TODO: check metadata denomination against actual on chain value
-	// phononValue := big.NewInt(int64(p.Denomination.Value()))
+	redeemValue := eth.calcRedemptionValue(onChainBalance, suggestedGasPrice)
+	log.Debug("transaction redemption value is: ", redeemValue)
 
-	//London EIP-1559 Gas estimation attempt
-	// //Calculate gas costs and subtract from max for final redeem value
-	// gasLimit := 21000
-	// bigGasLimit := big.NewInt(int64(gasLimit))
-	// var totalGasPrice *big.Int
-	// totalGasPrice = totalGasPrice.Add(suggestedGasPrice, suggestedGasTipCap)
-	// valueMinusGas = valueMinusGas.Sub(phononValue, valueMinusGas.Mul(totalGasPrice, bigGasLimit))
-
-	valueMinusGas := big.NewInt(0)
-	estimatedGasCost := big.NewInt(0)
-	gasLimit := 21000 //Magic number from examples
-	valueMinusGas = valueMinusGas.Sub(onChainPhononValue, estimatedGasCost.Mul(suggestedGasPrice, big.NewInt(int64(gasLimit))))
-
-	log.Debug("transaction value minus gas is: ", valueMinusGas)
-	tx := types.NewTransaction(nonce, toAddress.Address, valueMinusGas, uint64(gasLimit), suggestedGasPrice, nil)
-	//London EIP-1559 Transaction formation
-	// tx := types.NewTx(&types.DynamicFeeTx{
-	// 	ChainID:   ganacheChainID,
-	// 	Nonce:     nonce,
-	// 	GasFeeCap: suggestedGasPrice,
-	// 	GasTipCap: suggestedGasTipCap, //TODO: calc this
-	// 	Gas:       uint64(21000),
-	// 	To:        &toAddress.Address,
-	// 	Value:     valueMinusGas,
-	// })
-
+	//build transaction payload
+	tx := types.NewTransaction(nonce, common.HexToAddress(redeemAddress), redeemValue, uint64(21000), suggestedGasPrice, nil)
+	//Sign it
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(int64(p.ChainID))), privKey)
 	if err != nil {
 		return "", err
@@ -161,3 +101,63 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 	//Parse Response
 	return "", nil
 }
+
+func fetchPreTransactionInfo(cl *ethclient.Client, ctx context.Context, fromAddress common.Address) (nonce uint64, balance *big.Int, suggestedGas *big.Int, err error) {
+	nonce, err = cl.PendingNonceAt(ctx, fromAddress)
+	if err != nil {
+		log.Error("could not fetch pending nonce for eth account")
+		return 0, nil, nil, err
+	}
+	log.Debug("pending nonce: ", nonce)
+	//Check actual balance of phonon
+	balance, err = cl.PendingBalanceAt(ctx, fromAddress)
+	if err != nil {
+		log.Error("could not fetch on chain Phonon value")
+		return 0, nil, nil, err
+	}
+	log.Debug("on chain balance: ", balance)
+	suggestedGasPrice, err := cl.SuggestGasPrice(ctx)
+	if err != nil {
+		log.Error("error fetching suggested gas price: ", err)
+		return 0, nil, nil, err
+	}
+	log.Debug("suggest gas price is: ", suggestedGasPrice)
+	return nonce, balance, suggestedGasPrice, nil
+}
+
+func (eth *EthChainService) calcRedemptionValue(balance *big.Int, gasPrice *big.Int) *big.Int {
+	valueMinusGas := big.NewInt(0)
+	estimatedGasCost := big.NewInt(0)
+	gasLimit := int(eth.gasLimit) //Magic number from examples
+	return valueMinusGas.Sub(balance, estimatedGasCost.Mul(gasPrice, big.NewInt(int64(gasLimit))))
+}
+
+//London Signing Code
+//London EIP-1559 gas
+// suggestedGasTipCap, err := cl.SuggestGasTipCap(ctx)
+// if err != nil {
+// 	log.Error("error fetching suggested gas tip cap. err: ", err)
+// 	return "", "", err
+// }
+// log.Debug("suggested gas tip cap is: ", suggestedGasTipCap)
+//TODO: check metadata denomination against actual on chain value
+// phononValue := big.NewInt(int64(p.Denomination.Value()))
+
+//London EIP-1559 Gas estimation attempt
+// //Calculate gas costs and subtract from max for final redeem value
+// gasLimit := 21000
+// bigGasLimit := big.NewInt(int64(gasLimit))
+// var totalGasPrice *big.Int
+// totalGasPrice = totalGasPrice.Add(suggestedGasPrice, suggestedGasTipCap)
+// valueMinusGas = valueMinusGas.Sub(phononValue, valueMinusGas.Mul(totalGasPrice, bigGasLimit))
+
+//London EIP-1559 Transaction formation
+// tx := types.NewTx(&types.DynamicFeeTx{
+// 	ChainID:   ganacheChainID,
+// 	Nonce:     nonce,
+// 	GasFeeCap: suggestedGasPrice,
+// 	GasTipCap: suggestedGasTipCap, //TODO: calc this
+// 	Gas:       uint64(21000),
+// 	To:        &toAddress.Address,
+// 	Value:     valueMinusGas,
+// })

@@ -144,7 +144,6 @@ func TLVDecodePublicPhononFields(phononTLV tlv.TLVCollection) (*model.Phonon, er
 	phonon.ExtendedTLV = phononTLV.GetRemainingTLVs(standardTags)
 
 	//Collecting ChainID from extended tags pending a more elegant way to do this
-	//TODO: parse these via interface for each currencyType
 	for _, entry := range phonon.ExtendedTLV {
 		if entry.Tag == TagChainID {
 			//guard parsing against panics

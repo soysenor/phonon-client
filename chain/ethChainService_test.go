@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//TODO: Automate this test by fetching the privKey and redeemAddress and confirming them with the test chain
 func TestEthChainServiceRedeem(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 	eth, err := NewEthChainService()

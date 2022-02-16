@@ -84,7 +84,6 @@ func NewPhononCommandSet(c types.Channel) *PhononCommandSet {
 
 func (cs PhononCommandSet) Send(cmd *Command) (*apdu.Response, error) {
 	//Log commands to apdu log
-	//TODO: sqelch all this in configuration
 	//Log APDUs in debugger format to file
 	apduLogger.Debugf("#INS % X\n", cmd.ApduCmd.Ins)
 	outputAPDU, _ := cmd.ApduCmd.Serialize()
