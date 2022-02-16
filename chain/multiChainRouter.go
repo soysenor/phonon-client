@@ -13,7 +13,6 @@ type MultiChainRouter struct {
 }
 
 //Initialize all supported chain services at start
-//TODO: remove dependency on InitBuiltinChainServices()
 func NewMultiChainRouter() (*MultiChainRouter, error) {
 	mcr := &MultiChainRouter{
 		chainServices: make(map[model.CurrencyType]ChainService),
@@ -25,7 +24,6 @@ func NewMultiChainRouter() (*MultiChainRouter, error) {
 	return mcr, nil
 }
 
-//TODO: Use a configurable function instead of this hardcoded one
 func (mcr *MultiChainRouter) InitBuiltinChainServices() (err error) {
 	mcr.chainServices[model.Ethereum], err = NewEthChainService()
 	if err != nil {
@@ -38,10 +36,6 @@ func (mcr *MultiChainRouter) InitBuiltinChainServices() (err error) {
 //InitChainService and LoadChainService enable dynamic loading of different chain providers
 
 //Detect the chain service that should be used for each phonon based on CurrencyType
-//TODO: Setup a config file where this can be user defined
-//TODO: Change CurrencyType to AssetType
-//TODO: Change schema to allow for multiple assets to be defined on one phonon e.g. NFT + ETH at the same address.
-//Maybe this can just be done with different currencyTypes for NFT + ETH and NFT w/ no ETH
 func InitChainService(cur model.CurrencyType) (ChainService, error) {
 	switch cur {
 	case model.Ethereum:

@@ -21,7 +21,7 @@ func TestEthChainServiceRedeem(t *testing.T) {
 	//Hardcoding against ganache for now
 	//Manually construct a test phonon
 	//Take privKey from address 1
-	privKeyHex := "bd3b4df06b05efe4c5859c015b8d780e7a2e0f25a9b2bfaa1e60902b51fc0db6"
+	privKeyHex := "adf82ef76c833ae4d6e95a25a6fe288885cea6b1ca0cfc90b5171a6cc0abb86e"
 
 	privKey, err := util.ParseECCPrivKey(common.FromHex(privKeyHex))
 	if err != nil {
@@ -39,7 +39,7 @@ func TestEthChainServiceRedeem(t *testing.T) {
 		t.Error(err)
 	}
 	//Redeem to address 2
-	redeemAddress := "0x631816506EE68DcebCcf2d55da10f842b1862534"
+	redeemAddress := "0x5A9DbffeE5d7c319D970E937FF31A3D2Ab48ece0"
 	_, err = eth.RedeemPhonon(p, privKey, redeemAddress)
 	if err != nil {
 		t.Error("error redeeming phonon. err: ", err)
