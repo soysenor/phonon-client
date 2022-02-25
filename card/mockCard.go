@@ -5,10 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/bits"
 	"unicode"
 
 	"github.com/GridPlus/keycard-go/crypto"
@@ -117,37 +115,37 @@ func (np *NativePhonon) String() string {
 
 /*MineNativePhonons produces NativePhonons by probabilistic hash mining and stores them
 persistently along with the metadata to prove their genuine origin*/
-func (c *MockCard) MineNativePhonons() error {
-	//Mint up to a maximum limit
-	mintLimit := 2
-	//Set rarity floor for mining a Native Phonon
-	miningDifficulty := 4
+// func (c *MockCard) MineNativePhonons() error {
+// 	//Mint up to a maximum limit
+// 	mintLimit := 2
+// 	//Set rarity floor for mining a Native Phonon
+// 	miningDifficulty := 4
 
-	mintCount := 0
-	for i := 0; mintCount < mintLimit; i++ {
-		hash := sha256.Sum256(append(c.IdentityCert.Serialize(), byte(i)))
-		hashValue := binary.BigEndian.Uint32(hash[:])
-		rarity := bits.LeadingZeros32(hashValue)
-		if rarity > miningDifficulty {
-			//Generate signature of authenticity with card's identity certificate
-			sig, _ := c.identityKey.Sign(rand.Reader, hash[:], nil)
-			//Construct NativePhonon
-			np := &NativePhonon{
-				//include card's identity cert to prove valid origin
-				originCert: c.IdentityCert,
-				//include signature by cert to prove possession of cert
-				originSig: sig,
-				//include hash to prove mint rarity
-				hash:   hash,
-				rarity: rarity,
-			}
-			//Store NativePhonon for future transfer
-			c.AddNativePhonon(np)
-			mintCount++
-		}
-	}
-	return nil
-}
+// 	mintCount := 0
+// 	for i := 0; mintCount < mintLimit; i++ {
+// 		hash := sha256.Sum256(append(c.IdentityCert.Serialize(), byte(i)))
+// 		hashValue := binary.BigEndian.Uint32(hash[:])
+// 		rarity := bits.LeadingZeros32(hashValue)
+// 		if rarity > miningDifficulty {
+// 			//Generate signature of authenticity with card's identity certificate
+// 			sig, _ := c.identityKey.Sign(rand.Reader, hash[:], nil)
+// 			//Construct NativePhonon
+// 			np := &NativePhonon{
+// 				//include card's identity cert to prove valid origin
+// 				originCert: c.IdentityCert,
+// 				//include signature by cert to prove possession of cert
+// 				originSig: sig,
+// 				//include hash to prove mint rarity
+// 				hash:   hash,
+// 				rarity: rarity,
+// 			}
+// 			//Store NativePhonon for future transfer
+// 			c.AddNativePhonon(np)
+// 			mintCount++
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (c *MockCard) AddNativePhonon(np *NativePhonon) error {
 	c.nativePhonons = append(c.nativePhonons, np)
@@ -917,4 +915,9 @@ func (c *MockCard) GetFriendlyName() (string, error) {
 func (c *MockCard) GetAvailableMemory() (int, int, int, error) {
 	//Command is irrelevant in the mock, so just return 0's
 	return 0, 0, 0, nil
+}
+
+func (c *MockCard) MineNativePhonon(hashMining bool, difficulty uint8) (data []byte, err error) {
+	//command not currently needed in mock
+	return nil, nil
 }

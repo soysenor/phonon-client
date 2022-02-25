@@ -35,4 +35,5 @@ type PhononCard interface {
 	SetFriendlyName(name string) error
 	GetFriendlyName() (string, error)
 	GetAvailableMemory() (persistentMem int, onResetMem int, onDeselectMem int, err error)
+	MineNativePhonon(hashMining bool, difficulty uint8) (data []byte, err error)
 }

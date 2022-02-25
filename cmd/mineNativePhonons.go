@@ -46,18 +46,22 @@ func init() {
 func mineNativePhonons() {
 	//Parse args
 
-	//Loop that shit
 	//Mine for a phonon
-	cs, err := card.Connect(readerIndex)
+	cs, err := card.QuickSecureConnection(readerIndex, staticPairing)
 	if err != nil {
-		fmt.Println("could not connect to card. err: ", err)
+		fmt.Println(err)
 		return
 	}
-	_, _, _, err = cs.Select()
-	if err != nil {
-		fmt.Println("unable to select applet: ", err)
-		return
-	}
+	// cs, err := card.Connect(readerIndex)
+	// if err != nil {
+	// 	fmt.Println("could not connect to card. err: ", err)
+	// 	return
+	// }
+	// _, _, _, err = cs.Select()
+	// if err != nil {
+	// 	fmt.Println("unable to select applet: ", err)
+	// 	return
+	// }
 	var totalTime time.Duration
 	var i int
 	for i = 1; i > 0; i++ {

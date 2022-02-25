@@ -601,6 +601,7 @@ func NewCommandMineNativePhonon(hashMining bool, difficulty uint8) *Command {
 	} else {
 		InsTag = InsMineNativePhonon
 	}
+	InsTag = InsMineNativeHashPhonon
 	return &Command{
 		ApduCmd: apdu.NewCommand(
 			globalplatform.ClaGp,
