@@ -48,20 +48,20 @@ func mineNativePhonons() {
 
 	//Mine for a phonon
 	cs, err := card.QuickSecureConnection(readerIndex, staticPairing)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+	cs, err := card.Connect(readerIndex)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("could not connect to card. err: ", err)
 		return
 	}
-	// cs, err := card.Connect(readerIndex)
-	// if err != nil {
-	// 	fmt.Println("could not connect to card. err: ", err)
-	// 	return
-	// }
-	// _, _, _, err = cs.Select()
-	// if err != nil {
-	// 	fmt.Println("unable to select applet: ", err)
-	// 	return
-	// }
+	_, _, _, err = cs.Select()
+	if err != nil {
+		fmt.Println("unable to select applet: ", err)
+		return
+	}
 	var totalTime time.Duration
 	var i int
 	for i = 1; i > 0; i++ {
@@ -81,7 +81,7 @@ func mineNativePhonons() {
 			break
 		}
 	}
-	fmt.Printf("\nmining completed with difficult of %v byte(s): \n", difficulty)
+	fmt.Printf("\nmining completed with difficulty of %v bit(s): \n", difficulty)
 	fmt.Println("total mining attempts: ", i)
 	fmt.Println("mining run elapsed time: ", totalTime)
 	averageTime := time.Duration(float64(totalTime.Nanoseconds()) / float64(i))
