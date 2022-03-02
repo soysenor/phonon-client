@@ -8,8 +8,6 @@ import (
 
 	// "net/http"
 	// "net/url"
-
-	"github.com/GridPlus/phonon-client/config"
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,26 +18,27 @@ import (
 )
 
 type EthChainService struct {
-	APIKey    string
-	NodeURL   string
-	gasLimit  uint64
-	cl        *ethclient.Client
-	clChainID int
+	APIKey            string
+	NodeURL           string
+	gasLimit          uint64
+	cl                *ethclient.Client
+	clChainID         int
+	supportedChainIDs []int
 }
 
 func NewEthChainService() (*EthChainService, error) {
-	config, err := config.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
+	// config, err := config.LoadConfig()
+	// if err != nil {
+	// 	return nil, err
+	// }
 	// //TODO: Check API_KEY against chain instead of this default check
 	// if config.EthChainServiceApiKey == "" {
 	// 	return nil, errors.New("no APIKey found for EthChainService")
 	// }
 
 	ethchainSrv := &EthChainService{
-		APIKey:   config.EthChainServiceApiKey,
-		gasLimit: uint64(21000), //Setting to default magic value for now
+		gasLimit:          uint64(21000),        //Setting to default magic value for now
+		supportedChainIDs: []int{1, 3, 4, 1337}, //hardcoded list based on this module's support,
 	}
 	log.Debugf("successfully loaded EthChainServiceConfig: %+v", ethchainSrv)
 
@@ -52,12 +51,10 @@ func (eth *EthChainService) DeriveAddress(p *model.Phonon) (address string, err 
 }
 
 func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.PrivateKey, redeemAddress string) (transactionData string, err error) {
-	//Check that pubkey listed in metadata matches pubKey derived from phonon's private key
-	if !p.PubKey.Equal(privKey.Public()) {
-		log.Error("phonon pubkey metadata and pubkey derived from redemption privKey did not match. err: ", err)
-		log.Error("metadata pubkey: ", util.ECCPubKeyToHexString(p.PubKey))
-		log.Error("privKey derived key: ", util.ECCPubKeyToHexString(&privKey.PublicKey))
-		return "", errors.New("pubkey metadata and redemption private key did not match")
+	err = eth.ValidateRedeemData(p, privKey, redeemAddress)
+	if err != nil {
+		log.Error("phonon did not contain complete data for redemption: ", err)
+		return "", err
 	}
 
 	err = eth.dialRPCNode(p.ChainID)
@@ -76,6 +73,7 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 
 	//If gas would cost more than the value in the phonon, return error
 	if suggestedGasPrice.Cmp(onChainBalance) != -1 {
+		log.Error("phonon not large enough to pay gas for redemption")
 		return "", errors.New("phonon not large enough to pay gas for redemption")
 	}
 
@@ -100,6 +98,44 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 	//TODO: Test that this works somehow
 	//Parse Response
 	return string(tx.Data()), nil
+}
+
+//ReconcileRedeemData validates the input data to ensure it contains all that's needed for a successful redemption.
+//It will update the phonon data structure with a derived address if necessary
+func (eth *EthChainService) ValidateRedeemData(p *model.Phonon, privKey *ecdsa.PrivateKey, redeemAddress string) (err error) {
+	//Check that pubkey listed in metadata matches pubKey derived from phonon's private key
+	if !p.PubKey.Equal(privKey.Public()) {
+		log.Error("phonon pubkey metadata and pubkey derived from redemption privKey did not match. err: ", err)
+		log.Error("metadata pubkey: ", util.ECCPubKeyToHexString(p.PubKey))
+		log.Error("privKey derived key: ", util.ECCPubKeyToHexString(&privKey.PublicKey))
+		return errors.New("pubkey metadata and redemption private key did not match")
+	}
+
+	//Check that ChainID is supported
+	var supported bool
+	for _, supportedChainID := range eth.supportedChainIDs {
+		if p.ChainID == supportedChainID {
+			supported = true
+		}
+	}
+	if !supported {
+		log.Error("chainID %v not supported", p.ChainID)
+		return errors.New("invalid chainID")
+	}
+
+	//Check that fromAddress exists, if not derive it
+	if p.Address == "" {
+		p.Address, err = eth.DeriveAddress(p)
+		if err != nil {
+			log.Error("unable to derive source address for redemption: ", err)
+			return err
+		}
+	}
+
+	//Check that redeemAddress is valid
+	//TODO
+
+	return nil
 }
 
 //dialRPCNode
@@ -170,14 +206,17 @@ func (eth *EthChainService) submitLegacyTransaction(ctx context.Context, nonce u
 	//Sign it
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privKey)
 	if err != nil {
+		log.Error("error forming signed transaction: ", err)
 		return signedTx, err
 	}
 
 	//Send the transaction through the ETH client
 	err = eth.cl.SendTransaction(ctx, signedTx)
 	if err != nil {
+		log.Error("error sending transaction: ", err)
 		return signedTx, err
 	}
+	log.Debug("sent redeem transaction")
 	return signedTx, nil
 }
 
