@@ -217,6 +217,7 @@ func (apiSession apiSession) redeemPhonons(w http.ResponseWriter, r *http.Reques
 	var resps []*redeemPhononResp
 	for _, req := range reqs {
 		var respErr string
+		//TODO: return transaction data
 		transactionData, privKeyString, err := sess.RedeemPhonon(req.P, req.RedeemAddress)
 		//If err capture the error message as a string, else return string value ""
 		if err != nil {

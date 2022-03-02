@@ -407,7 +407,7 @@ func (s *Session) RedeemPhonon(p *model.Phonon, redeemAddress string) (transacti
 	privKeyString = util.ECCPrivKeyToHex(privKey)
 	transactionData, err = s.chainSrv.RedeemPhonon(p, privKey, redeemAddress)
 	if err != nil {
-		return "", privKeyString, nil
+		return "", privKeyString, err
 	}
 
 	return transactionData, privKeyString, nil
