@@ -20,10 +20,11 @@ import (
 )
 
 type EthChainService struct {
-	APIKey   string
-	NodeURL  string
-	gasLimit uint64
-	cl       *ethclient.Client
+	APIKey    string
+	NodeURL   string
+	gasLimit  uint64
+	cl        *ethclient.Client
+	clChainID int
 }
 
 func NewEthChainService() (*EthChainService, error) {
@@ -36,17 +37,9 @@ func NewEthChainService() (*EthChainService, error) {
 	// 	return nil, errors.New("no APIKey found for EthChainService")
 	// }
 
-	//TODO: Change this based on chainID?
-	cl, err := ethclient.Dial(config.EthNodeURL)
-	if err != nil {
-		log.Error("could not dial eth chain provider: ", err)
-		return nil, err
-	}
-
 	ethchainSrv := &EthChainService{
 		APIKey:   config.EthChainServiceApiKey,
 		gasLimit: uint64(21000), //Setting to default magic value for now
-		cl:       cl,
 	}
 	log.Debugf("successfully loaded EthChainServiceConfig: %+v", ethchainSrv)
 
@@ -67,6 +60,10 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 		return "", errors.New("pubkey metadata and redemption private key did not match")
 	}
 
+	err = eth.dialRPCNode(p.ChainID)
+	if err != nil {
+		return "", err
+	}
 	ctx := context.Background()
 
 	//Collect on chain details for redeem
@@ -82,8 +79,8 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 		return "", errors.New("phonon not large enough to pay gas for redemption")
 	}
 
-	ganacheChainID := big.NewInt(1337)
-	tx, err := eth.submitLegacyTransaction(ctx, nonce, ganacheChainID, common.HexToAddress(redeemAddress), redeemValue, eth.gasLimit, suggestedGasPrice, privKey)
+	// ganacheChainID := big.NewInt(1337)
+	tx, err := eth.submitLegacyTransaction(ctx, nonce, big.NewInt(int64(p.ChainID)), common.HexToAddress(redeemAddress), redeemValue, eth.gasLimit, suggestedGasPrice, privKey)
 	if err != nil {
 		return "", err
 	}
@@ -103,6 +100,37 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 	//TODO: Test that this works somehow
 	//Parse Response
 	return string(tx.Data()), nil
+}
+
+//dialRPCNode
+func (eth *EthChainService) dialRPCNode(chainID int) (err error) {
+	//If chainID is already set, correct RPC node is already connected
+	if eth.clChainID == chainID {
+		return nil
+	}
+	switch chainID {
+	case 1337: //ganache
+		ganacheRPC := "HTTP://127.0.0.1:8545"
+		eth.cl, err = ethclient.Dial(ganacheRPC)
+		if err != nil {
+			log.Error("could not dial eth chain provider: ", err)
+			return err
+		}
+	case 1: //mainnet
+		return errors.New("chainID not implemented")
+	case 3: //Ropsten
+		return errors.New("chainID not implemented")
+	case 4: //Rinkeby
+		rinkebyRPC := "https://eth-rinkeby.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
+		eth.cl, err = ethclient.Dial(rinkebyRPC)
+		if err != nil {
+			log.Error("could not dial eth chain provider: ", err)
+			return err
+		}
+	}
+	//If connection succeeded, set currently configured chainID
+	eth.clChainID = chainID
+	return nil
 }
 
 func (eth *EthChainService) fetchPreTransactionInfo(ctx context.Context, fromAddress common.Address) (nonce uint64, balance *big.Int, suggestedGas *big.Int, err error) {

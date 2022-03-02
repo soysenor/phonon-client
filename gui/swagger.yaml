@@ -189,31 +189,63 @@ paths:
       type: string
       description: sessionID of connected card
 
-  /cards/{sessionID}/phonon/{phononIndex}/redeem:
+  /cards/{sessionID}/phonon/redeem:
     post:
       tags:
       - "phonons"
       responses:
-        "404":
-          description: "Either the session or phonon doesn't exist"
+        "400":
+          description: "unable to decode request"
+        "500":
+          description: "unable to encode response"
         "200":
-          description: "Descriptor set properly"
+          description: "phonon successfully redeemed"
           schema:
-            type: "object"
-            properties:
-              privateKey:
-                type: "string"
+            type: "array"
+            items:
+              $ref: "#/definitions/RedeemPhononResponse"
     parameters:
     - in: path
       required: true
       name: sessionID
       type: string
       description: sessionID of connected card
-    - in: path
+    - in: "body"
+      name: "body"
+      description: "array of phonons to redeem along with redeem addresses to send them to"
       required: true
-      name: phononIndex
-      type: string
-      description: index of phonon to redeem
+      schema:
+        type: "array"
+        items:
+          $ref: "#/definitions/RedeemPhononRequest"
+
+    # Saving this to become the "export" route
+    # /cards/{sessionID}/phonon/{phononIndex}/redeem:
+    # post:
+    #   tags:
+    #   - "phonons"
+    #   responses:
+    #     "404":
+    #       description: "Either the session or phonon doesn't exist"
+    #     "200":
+    #       description: "Descriptor set properly"
+    #       schema:
+    #         type: "object"
+    #         properties:
+    #           privateKey:
+    #             type: "string"
+    # parameters:
+    # - in: path
+    #   required: true
+    #   name: sessionID
+    #   type: string
+    #   description: sessionID of connected card
+    # - in: path
+    #   required: true
+    #   name: phononIndex
+    #   type: string
+    #   description: index of phonon to redeem
+
   /cards/{sessionID}/phonon/initDeposit:
     post:
       tags:
@@ -323,4 +355,17 @@ definitions:
         type: "boolean"
       ConfirmedOnCard:
         type: "boolean"
+  RedeemPhononRequest:
+    type: object
+    properties:
+      Phonon:
+        $ref: "#/definitions/Phonon"
+      RedeemAddress:
+        type: "string"
+  RedeemPhononResponse:
+    type: object
+    properties:
+      TransactionData: "string"
+      PrivKey: "string"
+      err: "string"
 

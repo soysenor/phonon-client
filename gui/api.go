@@ -199,9 +199,19 @@ func (apiSession apiSession) redeemPhonons(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if len(reqs) == 0 {
+		log.Error("request data empty")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	for _, req := range reqs {
+		log.Debugf("received redeem phonon %+v", req.P)
+		log.Debug("received redeem address: ", req.RedeemAddress)
+	}
+	//TODO: Validate data contains what it needs to
 	type redeemPhononResp struct {
 		TransactionData string
-		PrivKeyString   string
+		PrivKey         string
 		err             string
 	}
 	var resps []*redeemPhononResp
@@ -214,7 +224,7 @@ func (apiSession apiSession) redeemPhonons(w http.ResponseWriter, r *http.Reques
 		}
 		resps = append(resps, &redeemPhononResp{
 			TransactionData: transactionData,
-			PrivKeyString:   privKeyString,
+			PrivKey:         privKeyString,
 			err:             respErr,
 		})
 	}
