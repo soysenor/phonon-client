@@ -120,25 +120,25 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 	//TODO: Fix to use model.Denomination directly
 	var depositPhononReq struct {
 		CurrencyType  model.CurrencyType
-		Denominations []int
+		Denominations []model.Denomination
 	}
 	err = json.NewDecoder(r.Body).Decode(&depositPhononReq)
 	if err != nil {
 		log.Error("unable to decode initDeposit request")
 		return
 	}
-	var denoms []model.Denomination
-	for _, i := range depositPhononReq.Denominations {
-		d, err := model.NewDenomination(big.NewInt(int64(i)))
-		if err != nil {
-			log.Error("error converting integer denomination request to denomination. err: ", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-		denoms = append(denoms, d)
-	}
+	// var denoms []model.Denomination
+	// for _, i := range depositPhononReq.Denominations {
+	// 	d, err := model.NewDenomination(big.NewInt(int64(i)))
+	// 	if err != nil {
+	// 		log.Error("error converting integer denomination request to denomination. err: ", err)
+	// 		http.Error(w, err.Error(), http.StatusBadRequest)
+	// 	}
+	// 	denoms = append(denoms, d)
+	// }
 	log.Debug("depositPhononReq: ", depositPhononReq)
-	log.Debug("denoms: ", denoms)
-	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, denoms)
+	log.Debug("denoms: ", depositPhononReq.Denominations)
+	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denominations)
 	if err != nil {
 		log.Error("unable to create phonons for deposit. err: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

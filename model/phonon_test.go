@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/GridPlus/phonon-client/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -79,5 +80,59 @@ func TestDenominationJSONMarshal(t *testing.T) {
 	correct := []byte(`{"Denomination":"1000"}`)
 	if string(result) != string(correct) {
 		t.Errorf("resulting json incorrect. was %v, should be %v\n", string(result), string(correct))
+	}
+}
+
+//TestMarshalJSON tests Marshalling the interesting fields from the phonon struct
+func TestMarshalPhononJSON(t *testing.T) {
+	dInt, _ := big.NewInt(0).SetString("1000000000000000", 10) //15 zeros
+	d, err := NewDenomination(dInt)
+	if err != nil {
+		t.Error("error setting denomination: ", d)
+	}
+	pubKey, err := util.ParseECCPubKey([]byte("041ecfecb19648bb85de8ee4d39b0d06ce5586da71e2e177e94ef98de24edf8eaef57fa76617033d145d7e5dd8b0965148a0825241e7983e0a40421f942492018b"))
+	if err != nil {
+		t.Error("error parsing pubKey. err: ", err)
+	}
+	// d, _ := NewDenomination()
+	p := &Phonon{
+		KeyIndex:     1,
+		PubKey:       pubKey,
+		Denomination: d,
+		CurrencyType: Ethereum,
+		ChainID:      1337,
+	}
+	JSON, err := json.Marshal(p)
+	if err != nil {
+		t.Error("could not JSONMarshal phonon: ", err)
+	}
+	correctJSON := string([]byte(`{"KeyIndex":1,"PubKey":"041ecfecb19648bb85de8ee4d39b0d06ce5586da71e2e177e94ef98de24edf8eaef57fa76617033d145d7e5dd8b0965148a0825241e7983e0a40421f942492018b","Address":"","AddressType":0,"SchemaVersion":0,"ExtendedSchemaVersion":0,"Denomination":"1000000000000000","CurrencyType":2,"ChainID":1337}`))
+
+	JSONstring := string(JSON)
+
+	if JSONstring != correctJSON {
+		t.Error("marshalled phonon JSON not equal to correct JSON.")
+		t.Errorf("was %v\nshould be %v\n", JSONstring, correctJSON)
+	}
+}
+
+func TestMarshalAndUnmarshalPhonon(t *testing.T) {
+	testJSON := []byte(`{"KeyIndex":1,"PubKey":"041ecfecb19648bb85de8ee4d39b0d06ce5586da71e2e177e94ef98de24edf8eaef57fa76617033d145d7e5dd8b0965148a0825241e7983e0a40421f942492018b","Address":"","AddressType":0,"SchemaVersion":0,"ExtendedSchemaVersion":0,"Denomination":"1000000000000000","CurrencyType":2,"ChainID":1337}`)
+
+	p := &Phonon{}
+	err := json.Unmarshal(testJSON, p)
+	if err != nil {
+		t.Error("couldn't unmarshal phonon JSON. err: ", err)
+	}
+	resultJSON, err := json.Marshal(p)
+	if err != nil {
+		t.Error("couldn't marshal phonon JSON. err: ", err)
+	}
+
+	testJSONstring := string(testJSON)
+	resultString := string(resultJSON)
+	if testJSONstring != resultString {
+		t.Error("phonon encode/decode did not match")
+		t.Errorf("was %v\n should be %v\n", resultString, testJSONstring)
 	}
 }
