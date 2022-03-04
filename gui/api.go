@@ -120,7 +120,7 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 	//TODO: Fix to use model.Denomination directly
 	var depositPhononReq struct {
 		CurrencyType  model.CurrencyType
-		Denominations []model.Denomination
+		Denominations []*model.Denomination
 	}
 	err = json.NewDecoder(r.Body).Decode(&depositPhononReq)
 	if err != nil {
