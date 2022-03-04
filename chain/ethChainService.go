@@ -119,7 +119,7 @@ func (eth *EthChainService) ValidateRedeemData(p *model.Phonon, privKey *ecdsa.P
 		}
 	}
 	if !supported {
-		log.Error("chainID %v not supported", p.ChainID)
+		log.Errorf("chainID %v not supported", p.ChainID)
 		return errors.New("invalid chainID")
 	}
 

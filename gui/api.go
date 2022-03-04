@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -86,7 +87,6 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 			log.Fatal("could not start GUI REST server", err)
 		}
 	}
-
 }
 
 func (apiSession apiSession) createPhonon(w http.ResponseWriter, r *http.Request) {
@@ -117,6 +117,7 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	//TODO: Fix to use model.Denomination directly
 	var depositPhononReq struct {
 		CurrencyType  model.CurrencyType
 		Denominations []int
@@ -128,7 +129,7 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 	}
 	var denoms []model.Denomination
 	for _, i := range depositPhononReq.Denominations {
-		d, err := model.NewDenomination(i)
+		d, err := model.NewDenomination(big.NewInt(int64(i)))
 		if err != nil {
 			log.Error("error converting integer denomination request to denomination. err: ", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -395,7 +396,7 @@ func (apiSession apiSession) setDescriptor(w http.ResponseWriter, r *http.Reques
 	}{}
 	json.Unmarshal(b, &inputs)
 
-	den, err := model.NewDenomination(inputs.Value)
+	den, err := model.NewDenomination(big.NewInt(int64(inputs.Value)))
 	if err != nil {
 		http.Error(w, "Unable to convert value to base and exponent form for phonon storage: "+err.Error(), http.StatusBadRequest)
 	}
