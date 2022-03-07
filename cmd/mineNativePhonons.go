@@ -47,7 +47,7 @@ func mineNativePhonons() {
 	//Parse args
 
 	//Mine for a phonon
-	cs, err := card.QuickSecureConnection(readerIndex, staticPairing)
+	// cs, err := card.QuickSecureConnection(readerIndex, staticPairing)
 	// if err != nil {
 	// 	fmt.Println(err)
 	// 	return
