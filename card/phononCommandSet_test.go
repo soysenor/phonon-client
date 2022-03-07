@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"github.com/GridPlus/keycard-go/io"
-	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/usb"
-	"github.com/GridPlus/phonon-client/util"
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
 )
@@ -473,28 +471,6 @@ func TestIncompletePairing(t *testing.T) {
 	if err != nil {
 		t.Log("expected error received calling SEND_PHONONS after just FINALIZE_CARD_PAIR. err: ", err)
 	}
-}
-
-//Tests that the card actually validates the certificate of it's counterparty during pairing.
-func TestCardValidatesCounterpartyCert(t *testing.T) {
-	m, _ := NewMockCard(false, false)
-
-	signingKey, err := util.ParseECCPrivKey(cert.PhononMockCAPrivKey)
-	if err != nil {
-		t.Error("error parsing private key. err: ", err)
-	}
-	testSigner := cert.GetSignerWithPrivateKey(*signingKey)
-	m.Select()
-	err = m.InstallCertificate(testSigner)
-	if err != nil {
-		t.Error("unable to install mock cert")
-	}
-
-	//Real cards should not be able to validate this mock in integration tests because they will be installed with the demo or alpha cert
-
-	// privKey, _ := ethcrypto.GenerateKey()
-	// fmt.Println("private key: ", util.ECCPrivKeyToHex(privKey))
-	// fmt.Println("public key: ", util.ECCPubKeyToHexString(&privKey.PublicKey))
 }
 
 //Pairing + Send/Receive cycle
