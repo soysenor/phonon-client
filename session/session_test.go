@@ -15,7 +15,7 @@ func TestDepositPhonons(t *testing.T) {
 
 	//Test Single Ethereum Deposit
 	denom, _ := model.NewDenomination(big.NewInt(1))
-	phonons, err := s.InitDepositPhonons(model.Ethereum, []model.Denomination{denom})
+	phonons, err := s.InitDepositPhonons(model.Ethereum, []*model.Denomination{&denom})
 	if err != nil {
 		t.Error("failed to initiate phonon deposit. err: ", err)
 	}

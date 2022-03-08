@@ -125,6 +125,8 @@ type Denomination struct {
 	Exponent uint8
 }
 
+var ErrInvalidDenomination = errors.New("value cannot be represented as a phonon denomination")
+
 //NewDenomination takes an integer input and attempts to store it as a compressible value representing currency base units
 //Precision is limited to significant digits no greater than the value 255, along with exponentiation up to 255 digits
 func NewDenomination(i *big.Int) (Denomination, error) {
@@ -139,6 +141,8 @@ func NewDenomination(i *big.Int) (Denomination, error) {
 			exponent += 1
 			i.Div(i, big.NewInt(10))
 			log.Debugf("i = %v, exponent = %v", i, exponent)
+		} else {
+			return Denomination{}, ErrInvalidDenomination
 		}
 	}
 	//If remaining base cannot be stored in a uint8 return error since this value can't be represented

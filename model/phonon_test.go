@@ -10,6 +10,26 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func TestDenominationErrorCheck(t *testing.T) {
+	type denomErrTest struct {
+		input  *big.Int
+		output error
+	}
+
+	tt := []denomErrTest{
+		{big.NewInt(355), ErrInvalidDenomination},
+		{big.NewInt(256), ErrInvalidDenomination},
+		{big.NewInt(10010), ErrInvalidDenomination},
+	}
+
+	for _, test := range tt {
+		_, err := NewDenomination(test.input)
+		if err != test.output {
+			t.Error("did not receive ErrInvalidDenomination for input: ", test.input)
+		}
+	}
+}
+
 func TestDenominationSetAndPrint(t *testing.T) {
 	type denomTest struct {
 		input  *big.Int
