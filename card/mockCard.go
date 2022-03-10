@@ -7,6 +7,7 @@ import (
 	"crypto/sha512"
 	"errors"
 	"fmt"
+	"math/big"
 	"unicode"
 
 	"github.com/GridPlus/keycard-go/crypto"
@@ -582,10 +583,9 @@ func (c *MockCard) ListPhonons(currencyType model.CurrencyType, lessThanValue ui
 	var ret []*model.Phonon
 	for _, phonon := range c.Phonons {
 		if !phonon.deleted &&
-			(currencyType == 0x00 || phonon.CurrencyType == currencyType) {
-			//TODO: Fix to do comparison with Value() as big.Int
-			// (greaterThanValue == 0 || phonon.Denomination.Value() > int(greaterThanValue)) &&
-			// (lessThanValue == 0 || phonon.Denomination.Value() < int(lessThanValue)) {
+			(currencyType == 0x00 || phonon.CurrencyType == currencyType) &&
+			(greaterThanValue == 0 || phonon.Denomination.Value().Cmp(new(big.Int).SetUint64(greaterThanValue)) == 1) &&
+			(lessThanValue == 0 || phonon.Denomination.Value().Cmp(new(big.Int).SetUint64(greaterThanValue)) == -1) {
 			ret = append(ret, &phonon.Phonon)
 		}
 	}
