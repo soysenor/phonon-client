@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package chain
 
 import (
@@ -9,19 +12,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//TODO: Automate this test by fetching the privKey and redeemAddress and confirming them with the test chain
+//TestEthChainServiceRedeem smoke tests the basic redeem funtionality using a ganache backend.
+//Ganache must be stood up manually and this test must be hand edited with valid keys to function.
 func TestEthChainServiceRedeem(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
+
+	//Hand Edit Here!
+	//Manually change privKeyHex and redeemAddress to values from the ganache backend used for this test
+	privKeyHex := "287f9caac470d6d8c0a921f60f912f81572ebd4aee6f91c41fdd20f950b27d1f"
+	redeemAddress := "0x18579269D059CD91581A01C2C3d70B16940c1BA7"
+
 	eth, err := NewEthChainService()
 	if err != nil {
 		t.Error(err)
 	}
-	//Try a transaction against ganache
-
-	//Hardcoding against ganache for now
-	//Manually construct a test phonon
-	//Take privKey from address 1
-	privKeyHex := "2cc946b02211c341df3fbc412a80b9fd423263363a893c600ca04e18fe1a3c89"
 
 	privKey, err := util.ParseECCPrivKey(common.FromHex(privKeyHex))
 	if err != nil {
@@ -38,11 +42,13 @@ func TestEthChainServiceRedeem(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	//Redeem to address 2
-	redeemAddress := "0xD212e6321b53410311bCC6E3e382c0F33BDdFCbC"
-	_, err = eth.RedeemPhonon(p, privKey, redeemAddress)
+
+	//Redeem to redeemAddress
+	tx, err := eth.RedeemPhonon(p, privKey, redeemAddress)
 	if err != nil {
 		t.Error("error redeeming phonon. err: ", err)
 	}
 
+	//Validate redeemAddress received value manually
+	t.Log("transaction hash: ", tx)
 }

@@ -29,7 +29,6 @@ func (mcr *MultiChainRouter) InitBuiltinChainServices() (err error) {
 	if err != nil {
 		return err
 	}
-	//TODO: BTC
 	return nil
 }
 

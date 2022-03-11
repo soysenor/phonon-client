@@ -18,27 +18,14 @@ import (
 )
 
 type EthChainService struct {
-	APIKey            string
-	NodeURL           string
-	gasLimit          uint64
-	cl                *ethclient.Client
-	clChainID         int
-	supportedChainIDs []int
+	gasLimit  uint64
+	cl        *ethclient.Client
+	clChainID int
 }
 
 func NewEthChainService() (*EthChainService, error) {
-	// config, err := config.LoadConfig()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// //TODO: Check API_KEY against chain instead of this default check
-	// if config.EthChainServiceApiKey == "" {
-	// 	return nil, errors.New("no APIKey found for EthChainService")
-	// }
-
 	ethchainSrv := &EthChainService{
-		gasLimit:          uint64(21000),        //Setting to default magic value for now
-		supportedChainIDs: []int{1, 3, 4, 1337}, //hardcoded list based on this module's support,
+		gasLimit: uint64(21000), //Setting to default magic value for now
 	}
 	log.Debugf("successfully loaded EthChainServiceConfig: %+v", ethchainSrv)
 
@@ -57,6 +44,7 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 		return "", err
 	}
 
+	//Will validate that we have a valid RPC endpoint for the given p.ChainID
 	err = eth.dialRPCNode(p.ChainID)
 	if err != nil {
 		return "", err
@@ -77,27 +65,13 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 		return "", errors.New("phonon not large enough to pay gas for redemption")
 	}
 
-	// ganacheChainID := big.NewInt(1337)
 	tx, err := eth.submitLegacyTransaction(ctx, nonce, big.NewInt(int64(p.ChainID)), common.HexToAddress(redeemAddress), redeemValue, eth.gasLimit, suggestedGasPrice, privKey)
 	if err != nil {
 		return "", err
 	}
 
-	//Nownodes format. probably deprecate
-	// //Format transaction request
-	// sendTransactionUrl, err := url.Parse("https://eth-blockbook.nownodes.io/api/v2/sendtx")
-	// if err != nil {
-	// 	return "", "", err
-	// }
-	// sendTransactionUrl.Path += txHex
-	// resp, err := http.Get(sendTransactionUrl.EscapedPath())
-	// if err != nil {
-	// 	return "", "", err
-	// }
-
-	//TODO: Test that this works somehow
 	//Parse Response
-	return string(tx.Data()), nil
+	return tx.Hash().String(), nil
 }
 
 //ReconcileRedeemData validates the input data to ensure it contains all that's needed for a successful redemption.
@@ -111,18 +85,6 @@ func (eth *EthChainService) ValidateRedeemData(p *model.Phonon, privKey *ecdsa.P
 		return errors.New("pubkey metadata and redemption private key did not match")
 	}
 
-	//Check that ChainID is supported
-	var supported bool
-	for _, supportedChainID := range eth.supportedChainIDs {
-		if p.ChainID == supportedChainID {
-			supported = true
-		}
-	}
-	if !supported {
-		log.Errorf("chainID %v not supported", p.ChainID)
-		return errors.New("invalid chainID")
-	}
-
 	//Check that fromAddress exists, if not derive it
 	if p.Address == "" {
 		p.Address, err = eth.DeriveAddress(p)
@@ -133,36 +95,41 @@ func (eth *EthChainService) ValidateRedeemData(p *model.Phonon, privKey *ecdsa.P
 	}
 
 	//Check that redeemAddress is valid
-	//TODO
+	//Just checks for correct address length, works with or without 0x prefix
+	valid := common.IsHexAddress(redeemAddress)
+	if !valid {
+		return errors.New("redeem address invalid")
+	}
 
 	return nil
 }
 
-//dialRPCNode
+//dialRPCNode establishes a connection to the proper RPC node based on the chainID
 func (eth *EthChainService) dialRPCNode(chainID int) (err error) {
+	var RPCEndpoint string
 	//If chainID is already set, correct RPC node is already connected
 	if eth.clChainID == chainID {
 		return nil
 	}
 	switch chainID {
-	case 1337: //ganache
-		ganacheRPC := "HTTP://127.0.0.1:8545"
-		eth.cl, err = ethclient.Dial(ganacheRPC)
-		if err != nil {
-			log.Error("could not dial eth chain provider: ", err)
-			return err
-		}
-	case 1: //mainnet
-		return errors.New("chainID not implemented")
+
+	case 1: //Mainnet
+		//untested
+		RPCEndpoint = "https://eth-mainnet.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
 	case 3: //Ropsten
-		return errors.New("chainID not implemented")
+		//untested
+		RPCEndpoint = "https://eth-ropsten.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
 	case 4: //Rinkeby
-		rinkebyRPC := "https://eth-rinkeby.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
-		eth.cl, err = ethclient.Dial(rinkebyRPC)
-		if err != nil {
-			log.Error("could not dial eth chain provider: ", err)
-			return err
-		}
+		RPCEndpoint = "https://eth-rinkeby.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
+	case 42: //Kovan
+		RPCEndpoint = "https://poa-kovan.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
+	case 1337: //Local Ganache
+		RPCEndpoint = "HTTP://127.0.0.1:8545"
+	}
+	eth.cl, err = ethclient.Dial(RPCEndpoint)
+	if err != nil {
+		log.Errorf("could not dial eth chain provider at endpoint %v: %v\n", RPCEndpoint, err)
+		return err
 	}
 	//If connection succeeded, set currently configured chainID
 	eth.clChainID = chainID
@@ -195,7 +162,7 @@ func (eth *EthChainService) fetchPreTransactionInfo(ctx context.Context, fromAdd
 func (eth *EthChainService) calcRedemptionValue(balance *big.Int, gasPrice *big.Int) *big.Int {
 	valueMinusGas := big.NewInt(0)
 	estimatedGasCost := big.NewInt(0)
-	gasLimit := int(eth.gasLimit) //Magic number from examples
+	gasLimit := int(eth.gasLimit)
 	return valueMinusGas.Sub(balance, estimatedGasCost.Mul(gasPrice, big.NewInt(int64(gasLimit))))
 }
 

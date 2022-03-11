@@ -68,6 +68,7 @@ func Server(port string, certFile string, keyFile string, mock bool) {
 	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/send", session.send)
 	r.HandleFunc("/cards/{sessionID}/phonon/create", session.createPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/redeem", session.redeemPhonons)
+	r.HandleFunc("/cards/{sessionID}/phonon/{PhononIndex}/export", session.exportPhonon)
 	r.HandleFunc("/cards/{sessionID}/phonon/initDeposit", session.initDepositPhonons)
 	r.HandleFunc("/cards/{sessionID}/phonon/finalizeDeposit", session.finalizeDepositPhonons)
 	// api docs
@@ -117,7 +118,6 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	//TODO: Fix to use model.Denomination directly
 	var depositPhononReq struct {
 		CurrencyType  model.CurrencyType
 		Denominations []*model.Denomination
@@ -127,15 +127,6 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 		log.Error("unable to decode initDeposit request")
 		return
 	}
-	// var denoms []model.Denomination
-	// for _, i := range depositPhononReq.Denominations {
-	// 	d, err := model.NewDenomination(big.NewInt(int64(i)))
-	// 	if err != nil {
-	// 		log.Error("error converting integer denomination request to denomination. err: ", err)
-	// 		http.Error(w, err.Error(), http.StatusBadRequest)
-	// 	}
-	// 	denoms = append(denoms, d)
-	// }
 	log.Debug("depositPhononReq: ", depositPhononReq)
 	log.Debug("denoms: ", depositPhononReq.Denominations)
 	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denominations)
@@ -218,7 +209,6 @@ func (apiSession apiSession) redeemPhonons(w http.ResponseWriter, r *http.Reques
 	var resps []*redeemPhononResp
 	for _, req := range reqs {
 		var respErr string
-		//TODO: return transaction data
 		transactionData, privKeyString, err := sess.RedeemPhonon(req.P, req.RedeemAddress)
 		//If err capture the error message as a string, else return string value ""
 		if err != nil {
@@ -438,39 +428,38 @@ func (apiSession apiSession) send(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//TODO: Change to exportPhonon or similar description
-// func (apiSession apiSession) redeemPhonon(w http.ResponseWriter, r *http.Request) {
-// 	vars := mux.Vars(r)
-// 	sess, err := apiSession.sessionFromMuxVars(vars)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusNotFound)
-// 		return
-// 	}
-// 	phononIndex, ok := vars["PhononIndex"]
-// 	if !ok {
-// 		http.Error(w, "Phonon not found", http.StatusNotFound)
-// 		return
-// 	}
-// 	index, err := strconv.ParseUint(phononIndex, 10, 16)
-// 	if err != nil {
-// 		http.Error(w, "Unable to convert index to int:"+err.Error(), http.StatusBadRequest)
-// 		return
-// 	}
-// 	privkey, err := sess.DestroyPhonon(uint16(index))
-// 	if err != nil {
-// 		http.Error(w, "Unable to redeem phonon: "+err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	ret := struct {
-// 		PrivateKey string `json:"privateKey"`
-// 	}{PrivateKey: fmt.Sprintf("%x", privkey.D)}
-// 	enc := json.NewEncoder(w)
-// 	err = enc.Encode(ret)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// }
+func (apiSession apiSession) exportPhonon(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sess, err := apiSession.sessionFromMuxVars(vars)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	phononIndex, ok := vars["PhononIndex"]
+	if !ok {
+		http.Error(w, "Phonon not found", http.StatusNotFound)
+		return
+	}
+	index, err := strconv.ParseUint(phononIndex, 10, 16)
+	if err != nil {
+		http.Error(w, "Unable to convert index to int:"+err.Error(), http.StatusBadRequest)
+		return
+	}
+	privkey, err := sess.DestroyPhonon(uint16(index))
+	if err != nil {
+		http.Error(w, "Unable to redeem phonon: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ret := struct {
+		PrivateKey string `json:"privateKey"`
+	}{PrivateKey: fmt.Sprintf("%x", privkey.D)}
+	enc := json.NewEncoder(w)
+	err = enc.Encode(ret)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
 
 func (apiSession apiSession) generatemock(w http.ResponseWriter, r *http.Request) {
 	err := apiSession.t.GenerateMock()
