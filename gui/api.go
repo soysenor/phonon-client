@@ -472,7 +472,7 @@ func (apiSession apiSession) sessionFromMuxVars(p map[string]string) (*session.S
 	sessionName, ok := p["sessionID"]
 	if !ok {
 		fmt.Println("unable to find session")
-		return nil, fmt.Errorf("unable to find sesion")
+		return nil, fmt.Errorf("unable to find session")
 	}
 	sessions := apiSession.t.ListSessions()
 	var targetSession *session.Session
@@ -483,7 +483,7 @@ func (apiSession apiSession) sessionFromMuxVars(p map[string]string) (*session.S
 		}
 	}
 	if targetSession == nil {
-		return nil, fmt.Errorf("unable to find sesion")
+		return nil, fmt.Errorf("unable to find session")
 	}
 	return targetSession, nil
 }

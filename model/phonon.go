@@ -81,7 +81,6 @@ func (p *Phonon) UnmarshalJSON(b []byte) error {
 	p.ExtendedSchemaVersion = phJSON.ExtendedSchemaVersion
 	p.Denomination = phJSON.Denomination
 	p.CurrencyType = CurrencyType(phJSON.CurrencyType)
-	//idk if this is good
 	p.ChainID = phJSON.ChainID
 
 	return nil

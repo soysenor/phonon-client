@@ -6,8 +6,6 @@ import (
 	"errors"
 	"math/big"
 
-	// "net/http"
-	// "net/url"
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/util"
 	"github.com/ethereum/go-ethereum/common"
@@ -186,33 +184,3 @@ func (eth *EthChainService) submitLegacyTransaction(ctx context.Context, nonce u
 	log.Debug("sent redeem transaction")
 	return signedTx, nil
 }
-
-//London Signing Code
-//London EIP-1559 gas
-// suggestedGasTipCap, err := cl.SuggestGasTipCap(ctx)
-// if err != nil {
-// 	log.Error("error fetching suggested gas tip cap. err: ", err)
-// 	return "", "", err
-// }
-// log.Debug("suggested gas tip cap is: ", suggestedGasTipCap)
-//TODO: check metadata denomination against actual on chain value
-// phononValue := big.NewInt(int64(p.Denomination.Value()))
-
-//London EIP-1559 Gas estimation attempt
-// //Calculate gas costs and subtract from max for final redeem value
-// gasLimit := 21000
-// bigGasLimit := big.NewInt(int64(gasLimit))
-// var totalGasPrice *big.Int
-// totalGasPrice = totalGasPrice.Add(suggestedGasPrice, suggestedGasTipCap)
-// valueMinusGas = valueMinusGas.Sub(phononValue, valueMinusGas.Mul(totalGasPrice, bigGasLimit))
-
-//London EIP-1559 Transaction formation
-// tx := types.NewTx(&types.DynamicFeeTx{
-// 	ChainID:   ganacheChainID,
-// 	Nonce:     nonce,
-// 	GasFeeCap: suggestedGasPrice,
-// 	GasTipCap: suggestedGasTipCap, //TODO: calc this
-// 	Gas:       uint64(21000),
-// 	To:        &toAddress.Address,
-// 	Value:     valueMinusGas,
-// })
