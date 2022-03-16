@@ -43,6 +43,8 @@ func SetDefaultConfig() {
 func LoadConfig() (config Config, err error) {
 	SetDefaultConfig()
 	viper.AddConfigPath("$HOME/.phonon/")
+	viper.AddConfigPath("$XDG_CONFIG_HOME/.phonon/phonon.yml")
+	viper.AddConfigPath("/usr/var/phonon/phonon.yml")
 	viper.SetConfigName("phonon")
 	viper.SetConfigType("yml")
 
