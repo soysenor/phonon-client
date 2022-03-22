@@ -104,13 +104,13 @@ func (eth *EthChainService) ValidateRedeemData(p *model.Phonon, privKey *ecdsa.P
 
 //dialRPCNode establishes a connection to the proper RPC node based on the chainID
 func (eth *EthChainService) dialRPCNode(chainID int) (err error) {
+	log.Debugf("ethChainID: %v, chainID: %v\n", eth.clChainID, chainID)
 	var RPCEndpoint string
 	//If chainID is already set, correct RPC node is already connected
-	if eth.clChainID == chainID {
+	if eth.clChainID != 0 && eth.clChainID == chainID {
 		return nil
 	}
 	switch chainID {
-
 	case 1: //Mainnet
 		//untested
 		RPCEndpoint = "https://eth-mainnet.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
@@ -123,14 +123,19 @@ func (eth *EthChainService) dialRPCNode(chainID int) (err error) {
 		RPCEndpoint = "https://poa-kovan.gateway.pokt.network/v1/lb/621e9e234e140e003a32b8ba"
 	case 1337: //Local Ganache
 		RPCEndpoint = "HTTP://127.0.0.1:8545"
+	default:
+		log.Debug("unsupported eth chainID requested")
+		return errors.New("eth chainID unsupported")
 	}
 	eth.cl, err = ethclient.Dial(RPCEndpoint)
 	if err != nil {
 		log.Errorf("could not dial eth chain provider at endpoint %v: %v\n", RPCEndpoint, err)
 		return err
 	}
+
 	//If connection succeeded, set currently configured chainID
 	eth.clChainID = chainID
+	log.Debug("eth chain ID set to ", chainID)
 	return nil
 }
 

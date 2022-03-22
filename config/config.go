@@ -17,9 +17,6 @@ type Config struct {
 	EthNodeURL            string
 }
 
-type PhononCommandSetConfig struct {
-}
-
 type EthChainServiceConfig struct {
 	ApiKey string
 }
@@ -27,10 +24,8 @@ type EthChainServiceConfig struct {
 func DefaultConfig() Config {
 	//Add viper/commandline integration later
 	conf := Config{
-		AppletCACert:          cert.PhononDemoCAPubKey,
-		LogLevel:              log.DebugLevel,
-		EthChainServiceApiKey: "",
-		EthNodeURL:            "",
+		AppletCACert: cert.PhononDemoCAPubKey,
+		LogLevel:     log.DebugLevel,
 	}
 	return conf
 }

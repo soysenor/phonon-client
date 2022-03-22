@@ -243,7 +243,6 @@ paths:
       name: phononIndex
       type: string
       description: index of phonon to redeem
-
   /cards/{sessionID}/phonon/initDeposit:
     post:
       tags:

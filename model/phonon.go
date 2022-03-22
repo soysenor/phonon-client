@@ -31,7 +31,7 @@ type Phonon struct {
 }
 
 func (p *Phonon) String() string {
-	return fmt.Sprintf("KeyIndex: %v\nDenomination: %v\ncurrencyType: %v\nPubKey: %v\nAddress: %v\nChainID: %v\nCurveType: %v\nSchemaVersion: %v\nExtendedSchemaVersion: %v\nExtendedTLV: %v\n",
+	return fmt.Sprintf("KeyIndex: %v\nDenomination: %v\nCurrencyType: %v\nPubKey: %v\nAddress: %v\nChainID: %v\nCurveType: %v\nSchemaVersion: %v\nExtendedSchemaVersion: %v\nExtendedTLV: %v\n",
 		p.KeyIndex,
 		p.Denomination,
 		p.CurrencyType,
