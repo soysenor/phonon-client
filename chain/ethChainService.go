@@ -8,6 +8,9 @@ import (
 
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/util"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -15,9 +18,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//Composite interface supporting all needed EVM RPC calls
+type EthChainInterface interface {
+	bind.ContractTransactor
+	ethereum.ChainStateReader
+}
 type EthChainService struct {
 	gasLimit  uint64
-	cl        *ethclient.Client
+	cl        EthChainInterface //*ethclient.Client // //bind.ContractTransactor
 	clChainID int
 }
 
@@ -147,7 +155,7 @@ func (eth *EthChainService) fetchPreTransactionInfo(ctx context.Context, fromAdd
 	}
 	log.Debug("pending nonce: ", nonce)
 	//Check actual balance of phonon
-	balance, err = eth.cl.PendingBalanceAt(ctx, fromAddress)
+	balance, err = eth.cl.BalanceAt(ctx, fromAddress, nil)
 	if err != nil {
 		log.Error("could not fetch on chain Phonon value")
 		return 0, nil, nil, err
