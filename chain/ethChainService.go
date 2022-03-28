@@ -6,22 +6,31 @@ import (
 	"errors"
 	"math/big"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/GridPlus/phonon-client/model"
 	"github.com/GridPlus/phonon-client/util"
+	"github.com/GridPlus/phonon-client/tlv"
+	"github.com/GridPlus/phonon-client/card"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/core/types"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
 	log "github.com/sirupsen/logrus"
+	erc721 "github.com/soysenor/eth-go-bindings/erc721"
+	erc20 "github.com/soysenor/eth-go-bindings/erc20"
 )
 
 //Composite interface supporting all needed EVM RPC calls
 type EthChainInterface interface {
 	bind.ContractTransactor
 	ethereum.ChainStateReader
+	bind.ContractBackend
 }
 type EthChainService struct {
 	gasLimit  uint64
@@ -57,27 +66,76 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 	}
 	ctx := context.Background()
 
-	//Collect on chain details for redeem
-	nonce, onChainBalance, suggestedGasPrice, err := eth.fetchPreTransactionInfo(ctx, common.HexToAddress(p.Address))
-	if err != nil {
-		return "", err
-	}
-	redeemValue := eth.calcRedemptionValue(onChainBalance, suggestedGasPrice)
-	log.Debug("transaction redemption value is: ", redeemValue)
+	switch p.CurrencyType {
+		case model.Ethereum:
+			tx, err := eth.redeemETH(p, ctx, privKey, redeemAddress)
+			if err != nil {
+				return "", err
+			}
+			return tx, nil
 
-	//If gas would cost more than the value in the phonon, return error
-	if suggestedGasPrice.Cmp(onChainBalance) != -1 {
-		log.Error("phonon not large enough to pay gas for redemption")
-		return "", errors.New("phonon not large enough to pay gas for redemption")
+		case model.EthereumERC721:
+			tx, err := eth.redeemToken(p, ctx, privKey, redeemAddress)
+			if err != nil {
+				return "", err
+			}
+			return tx, nil
+
+		case model.EthereumERC20:
+			tx, err := eth.redeemToken(p, ctx, privKey, redeemAddress)
+			if err != nil {
+				return "", err
+			}
+			return tx, nil
 	}
 
-	tx, err := eth.submitLegacyTransaction(ctx, nonce, big.NewInt(int64(p.ChainID)), common.HexToAddress(redeemAddress), redeemValue, eth.gasLimit, suggestedGasPrice, privKey)
+	return "", errors.New("cannot auto redeem this ethereum asset type")
+}
+
+func (eth *EthChainService) VerifyBalance(p *model.Phonon) (balance bool, err error) {
+	// Get Address for Phonon
+	err = eth.checkFetchFromAddress(p)
 	if err != nil {
-		return "", err
+		return false, err
+	}
+
+	//Validate if we have valid RPC endpoint
+	if p.ChainID == 0 {
+		return false, errors.New("cannot establish connection with RPC node")
+	}
+
+	err = eth.dialRPCNode(p.ChainID)
+	if err != nil {
+		return false, err
+	}
+	ctx := context.Background()
+
+	//Check additional for assets, if applicable
+	switch p.CurrencyType {
+		case model.Ethereum:
+			check, err := eth.checkETHBalance(ctx, p)
+			if err != nil {
+				return false, err
+			}
+			return check, nil
+
+		case model.EthereumERC721:
+			check, err := eth.checkERC721Balance(ctx, p)
+			if err != nil {
+				return false, err
+			}
+			return check, nil
+
+		case model.EthereumERC20:
+			check, err := eth.checkERC20Balance(ctx, p)
+			if err != nil {
+				return false, err
+			}
+			return check, nil
 	}
 
 	//Parse Response
-	return tx.Hash().String(), nil
+	return true, nil
 }
 
 //ReconcileRedeemData validates the input data to ensure it contains all that's needed for a successful redemption.
@@ -91,13 +149,10 @@ func (eth *EthChainService) ValidateRedeemData(p *model.Phonon, privKey *ecdsa.P
 		return errors.New("pubkey metadata and redemption private key did not match")
 	}
 
-	//Check that fromAddress exists, if not derive it
-	if p.Address == "" {
-		p.Address, err = eth.DeriveAddress(p)
-		if err != nil {
-			log.Error("unable to derive source address for redemption: ", err)
-			return err
-		}
+	// Get Address for Phonon
+	err = eth.checkFetchFromAddress(p)
+	if err != nil {
+		return err
 	}
 
 	//Check that redeemAddress is valid
@@ -147,6 +202,116 @@ func (eth *EthChainService) dialRPCNode(chainID int) (err error) {
 	return nil
 }
 
+func (eth *EthChainService) redeemETH(p *model.Phonon, ctx context.Context, privKey *ecdsa.PrivateKey, redeemAddress string) (transactionData string, err error) {
+	//Collect on chain details for redeem
+	nonce, onChainBalance, suggestedGasPrice, err := eth.fetchPreTransactionInfo(ctx, common.HexToAddress(p.Address))
+	if err != nil {
+		return "", err
+	}
+	redeemValue := eth.calcRedemptionValue(onChainBalance, suggestedGasPrice)
+	log.Debug("transaction redemption value is: ", redeemValue)
+
+	//If gas would cost more than the value in the phonon, return error
+	if suggestedGasPrice.Cmp(onChainBalance) != -1 {
+		log.Error("phonon not large enough to pay gas for redemption")
+		return "", errors.New("phonon not large enough to pay gas for redemption")
+	}
+
+	tx, err := eth.submitLegacyTransaction(ctx, nonce, big.NewInt(int64(p.ChainID)), common.HexToAddress(redeemAddress), redeemValue, eth.gasLimit, suggestedGasPrice, privKey, nil)
+	if err != nil {
+		return "", err
+	}
+
+	//Parse Response
+	return tx.Hash().String(), nil
+}
+
+func (eth *EthChainService) redeemToken(p *model.Phonon, ctx context.Context, privKey *ecdsa.PrivateKey, redeemAddress string) (transactionData string, err error) {
+	//TODO: would not expect eth to be in erc20 or erc721 phonon. redemption
+	//should be preceeded by a transfer of eth to the phonon address - likely to
+	//be done in web app before sending redemption command from webui to client
+
+	// collect on chain details
+	fromAddress := common.HexToAddress(p.Address)
+	nonce, onChainBalance, suggestedGasPrice, err := eth.fetchPreTransactionInfo(ctx, fromAddress)
+	if err != nil {
+		return "", err
+	}
+
+	// get tags with erc721 and erc21 contract details
+	packet := tlv.EncodeTLVList(p.ExtendedTLV...)
+	parsed, err := tlv.ParseTLVPacket(packet)
+	if err != nil {
+		return "", err
+	}
+	// get contract address
+	contractBytes, err := parsed.FindTag(card.TagPhononContractAddress)
+	if err != nil {
+		return "", err
+	}
+	contractAddress := common.HexToAddress(string(contractBytes))
+
+	// get contract method and token quantity or id
+	var method string
+	var amount []byte
+
+	if p.CurrencyType == model.EthereumERC20 {
+		method = "transfer(address,uint256)"
+		amount = p.Denomination.Value().Bytes()
+
+	} else if p.CurrencyType == model.EthereumERC721 {
+		method = "safeTransferFrom(address,address,uint256)"
+		idbytes, err := parsed.FindTag(card.TagPhononContractTokenID)
+		if err != nil {
+			return "", err
+		}
+		amount = idbytes
+
+	} else {
+		return "", errors.New("no known method to call for this currency type")
+	}
+
+	// prepare data packet
+	fnSig := []byte(method)
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(fnSig)
+  methodID := hash.Sum(nil)[:4]
+	toAddress := common.HexToAddress(redeemAddress)
+	paddedAddress := common.LeftPadBytes(toAddress.Bytes(), 32)
+	paddedAmount := common.LeftPadBytes(amount, 32)
+
+	// build data packet including additional address parameter for erc721
+	var data []byte
+  data = append(data, methodID...)
+	if p.CurrencyType == model.EthereumERC721 {
+		paddedFromAddress := common.LeftPadBytes(fromAddress.Bytes(), 32)
+		data = append(data, paddedFromAddress...)
+	}
+  data = append(data, paddedAddress...)
+  data = append(data, paddedAmount...)
+
+
+	gasLimit, err := eth.cl.EstimateGas(ctx, ethereum.CallMsg{
+		To:   &contractAddress,
+		Data: data,
+	})
+	if err != nil {
+		return "", errors.New("cannot estimate gaslimit for redemption")
+	}
+
+	tx, err := eth.submitLegacyTransaction(ctx, nonce, big.NewInt(int64(p.ChainID)), common.HexToAddress(redeemAddress), big.NewInt(0), gasLimit, suggestedGasPrice, privKey, data)
+	if err != nil {
+		return "", err
+	}
+
+	//TODO: if for some reason there is a bunch of eth in the erc20 phonon
+	//it should be captured by a subsequent redeemETH
+	leftOverValue := eth.calcRedemptionValue(onChainBalance, big.NewInt(int64(gasLimit)))
+	log.Debug("potential leftover eth in wallet: ", leftOverValue)
+
+	return tx.Hash().String(), nil
+}
+
 func (eth *EthChainService) fetchPreTransactionInfo(ctx context.Context, fromAddress common.Address) (nonce uint64, balance *big.Int, suggestedGas *big.Int, err error) {
 	nonce, err = eth.cl.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
@@ -177,10 +342,10 @@ func (eth *EthChainService) calcRedemptionValue(balance *big.Int, gasPrice *big.
 	return valueMinusGas.Sub(balance, estimatedGasCost.Mul(gasPrice, big.NewInt(int64(gasLimit))))
 }
 
-func (eth *EthChainService) submitLegacyTransaction(ctx context.Context, nonce uint64, chainID *big.Int, redeemAddress common.Address, redeemValue *big.Int, gasLimit uint64, gasPrice *big.Int, privKey *ecdsa.PrivateKey) (*types.Transaction, error) {
+func (eth *EthChainService) submitLegacyTransaction(ctx context.Context, nonce uint64, chainID *big.Int, redeemAddress common.Address, redeemValue *big.Int, gasLimit uint64, gasPrice *big.Int, privKey *ecdsa.PrivateKey, data []byte) (*types.Transaction, error) {
 	//Submit transaction
 	//build transaction payload
-	tx := types.NewTransaction(nonce, redeemAddress, redeemValue, gasLimit, gasPrice, nil)
+	tx := types.NewTransaction(nonce, redeemAddress, redeemValue, gasLimit, gasPrice, data)
 	//Sign it
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privKey)
 	if err != nil {
@@ -196,4 +361,123 @@ func (eth *EthChainService) submitLegacyTransaction(ctx context.Context, nonce u
 	}
 	log.Debug("sent redeem transaction")
 	return signedTx, nil
+}
+
+func (eth *EthChainService) checkFetchFromAddress(p *model.Phonon) error {
+	var err error
+	if p.Address == "" {
+		p.Address, err = eth.DeriveAddress(p)
+		if err != nil {
+			log.Error("unable to derive source address for redemption: ", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (eth *EthChainService) checkETHBalance(ctx context.Context, p *model.Phonon) (check bool, err error) {
+
+	// Get Balance at Phonon Public Address
+	response, err := eth.cl.BalanceAt(ctx, common.HexToAddress(p.Address), nil)
+	if err != nil {
+		return false, err
+	}
+	// Get Phonon Denomination
+	denom := new(big.Int).Mul(p.Denomination.Value(), big.NewInt(params.Ether))
+
+	// Compare Denomination and Balance
+	compare := response.Cmp(denom)
+	if (compare < 0) {
+		return false, errors.New("phonon balance is insufficient")
+	}
+
+	return true, nil
+}
+
+func (eth *EthChainService) checkERC721Balance(ctx context.Context, p *model.Phonon) (check bool, err error) {
+
+	packet := tlv.EncodeTLVList(p.ExtendedTLV...)
+
+	// Parse TLV Collection
+	parsed, err := tlv.ParseTLVPacket(packet)
+	if err != nil {
+		return false, err
+	}
+
+	// Get Bytes Value for ERC721 Contract Address Tag then format
+	contractBytes, err := parsed.FindTag(card.TagPhononContractAddress)
+	if err != nil {
+		return false, err
+	}
+	contract := common.HexToAddress(string(contractBytes))
+
+	// Get Bytes Value for ERC721 Token ID then format
+	idbytes, err := parsed.FindTag(card.TagPhononContractTokenID)
+	if err != nil {
+		return false, err
+	}
+
+	id, err := util.BytesToFloat32(idbytes)
+	if err != nil {
+		return false, err
+	}
+
+	// Establish Bindings for ERC721 Contract
+	erc721Contract, err := erc721.NewErc721(contract, eth.cl)
+	if err != nil {
+		return false, err
+	}
+
+	// Return Actual Owner of Token ID
+	owner, err := erc721Contract.OwnerOf(&bind.CallOpts{}, big.NewInt(int64(id)))
+	if err != nil {
+			return false, errors.New("tagged contract address is not erc721")
+	}
+
+	// Check if Phonon Owns Token
+	if common.HexToAddress(p.Address) != owner {
+		return false, errors.New("erc721 owned by different address:"+owner.String())
+	}
+
+	return true, nil
+}
+
+func (eth *EthChainService) checkERC20Balance(ctx context.Context, p *model.Phonon) (check bool, err error) {
+
+	packet := tlv.EncodeTLVList(p.ExtendedTLV...)
+
+	// Parse TLV Collection
+	parsed, err := tlv.ParseTLVPacket(packet)
+	if err != nil {
+		return false, err
+	}
+
+	// Get Bytes Value for ERC721 Contract Address Tag then format
+	contractBytes, err := parsed.FindTag(card.TagPhononContractAddress)
+	if err != nil {
+		return false, err
+	}
+	contract := common.HexToAddress(string(contractBytes))
+
+	// Establish Bindings for ERC20 Contract
+	erc20Contract, err := erc20.NewErc20(contract, eth.cl)
+	if err != nil {
+		return false, err
+	}
+
+	// Return Actual Balance of ERC20 Token
+	balance, err := erc20Contract.BalanceOf(&bind.CallOpts{}, common.HexToAddress(p.Address))
+	if err != nil {
+			return false, errors.New("tagged contract address is not erc20")
+	}
+
+	// Get Phonon Denomination then compare to balance
+	denom := new(big.Int).Mul(p.Denomination.Value(), big.NewInt(params.Ether))
+	compare := balance.Cmp(denom)
+
+	if compare < 0 {
+			return false, errors.New("insufficient balance of erc20")
+	}
+
+	return true, nil
 }

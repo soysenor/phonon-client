@@ -32,6 +32,14 @@ func (mcr *MultiChainRouter) initBuiltinChainServices() (err error) {
 	if err != nil {
 		return err
 	}
+	mcr.chainServices[model.EthereumERC721], err = NewEthChainService()
+	if err != nil {
+		return err
+	}
+	mcr.chainServices[model.EthereumERC20], err = NewEthChainService()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -50,4 +58,12 @@ func (mcr *MultiChainRouter) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Privat
 		return "", ErrCurrencyTypeUnsupported
 	}
 	return chain.RedeemPhonon(p, privKey, redeemAddress)
+}
+
+func (mcr *MultiChainRouter) VerifyBalance(p *model.Phonon) (balance bool, err error) {
+	chain, ok := mcr.chainServices[p.CurrencyType]
+	if !ok {
+		return false, ErrCurrencyTypeUnsupported
+	}
+	return chain.VerifyBalance(p)
 }

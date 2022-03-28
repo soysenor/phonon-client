@@ -67,6 +67,11 @@ func listPhonons(c *ishell.Context) {
 	c.Println("phonons: ")
 	for _, p := range phonons {
 		c.Printf("%v\n", p)
+		test, err := p.MarshalJSON()
+		if err != nil {
+			c.Printf("error marshaling", err)
+			c.Printf("%v\n", test)
+		}
 	}
 }
 
@@ -74,7 +79,7 @@ func setDescriptor(c *ishell.Context) {
 	if ready := checkActiveCard(c); !ready {
 		return
 	}
-	numCorrectArgs := 3
+	numCorrectArgs := 4
 	if len(c.Args) != numCorrectArgs {
 		c.Printf("setDescriptor requires %v args\n", numCorrectArgs)
 		return
@@ -102,11 +107,41 @@ func setDescriptor(c *ishell.Context) {
 		c.Println("cannot represent denomination: ", err)
 		return
 	}
+
+	chainId, err := strconv.Atoi(c.Args[3])
+	if err != nil {
+		c.Println("chainID could not be parse: ", err)
+		return
+	}
+
 	c.Println("setting descriptor with values: ", uint16(keyIndex), currencyType, denomination)
 	p := &model.Phonon{
 		KeyIndex:     uint16(keyIndex),
 		CurrencyType: currencyType,
 		Denomination: denomination,
+		ChainID: chainId,
+	}
+
+	// Capture Required Tag Fields
+	requiredTags := model.CurrencyTypeTagsRequired[currencyType]
+	newTags := make([]model.PhononTag, 0)
+	if len(requiredTags) > 0 {
+		c.Println("Additional tags are required.")
+
+		for i, tag := range requiredTags {
+			c.Printf("Input %v: ", tag)
+			tagValue := c.ReadLine()
+
+			if len(tagValue) == 0 {
+				c.Println("Required tag cannot be null")
+				return
+			}
+			newTags = append(newTags, model.PhononTag{TagName: requiredTags[i], TagValue: tagValue})
+		}
+	}
+
+	if len(newTags) > 0 {
+		p.AddTags(newTags)
 	}
 
 	err = activeCard.SetDescriptor(p)
@@ -150,4 +185,27 @@ func redeemPhonon(c *ishell.Context) {
 	c.Println("private key: ")
 	//TODO: Find a better encoding format
 	c.Printf("%x\n", privKey.D)
+}
+
+func verifyBalance(c *ishell.Context) {
+	if ready := checkActiveCard(c); !ready {
+		return
+	}
+	numCorrectArgs := 1
+	if len(c.Args) != numCorrectArgs {
+		c.Println("incorrect number of args")
+		return
+	}
+
+	keyIndex, err := strconv.ParseUint(c.Args[0], 10, 16)
+	if err != nil {
+		c.Println("could not parse keyIndex arg: ", err)
+		return
+	}
+	privKey, err := activeCard.VerifyBalance(uint16(keyIndex))
+	if err != nil {
+		c.Printf("unable to verify contents of phonon %v, err: %v\n", keyIndex, err)
+		return
+	}
+	c.Println("verified contents of phonon: ", privKey)
 }

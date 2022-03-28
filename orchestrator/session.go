@@ -442,15 +442,44 @@ func (s *Session) PairWithRemoteCard(remoteCard model.CounterpartyPhononCard) er
 	return nil
 }
 
+func (s *Session) VerifyBalance(keyIndex uint16) (balance bool, err error) {
+	if !s.verified() {
+		return false, card.ErrPINNotEntered
+	}
+
+	log.Debug("sending VERIFY_BALANCE request")
+	phononList, err := s.ListPhonons(0, 0, 0)
+
+	for _, phonon := range phononList {
+		if (phonon.KeyIndex == keyIndex) {
+
+			// Get Pubkey for Phonon
+			phonon.PubKey, err = s.GetPhononPubKey(phonon.KeyIndex)
+			if err != nil {
+				return false, err
+			}
+
+			// Verify Balance for Phonon
+			balance, err := s.chainSrv.VerifyBalance(phonon)
+			if err != nil {
+				return false, err
+			}
+
+			return balance, nil
+		}
+	}
+	return false, nil
+}
+
 /*InitDepositPhonons takes a currencyType and a map of denominations to quantity,
 Creates the required phonons, deposits them using the configured service for the asset
 and upon success sets their descriptors*/
-func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []*model.Denomination) (phonons []*model.Phonon, err error) {
+func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []*model.Denomination, tags [][]model.PhononTag) (phonons []*model.Phonon, err error) {
 	log.Debugf("running InitDepositPhonons with data: %v, %v\n", currencyType, denoms)
 	if !s.verified() {
 		return nil, card.ErrPINNotEntered
 	}
-	for _, denom := range denoms {
+	for loc, denom := range denoms {
 		p := &model.Phonon{}
 		p.KeyIndex, p.PubKey, err = s.CreatePhonon()
 		log.Debug("ran CreatePhonons in InitDepositLoop")
@@ -461,6 +490,9 @@ func (s *Session) InitDepositPhonons(currencyType model.CurrencyType, denoms []*
 		p.Denomination = *denom
 		p.CurrencyType = currencyType
 		p.Address, err = s.chainSrv.DeriveAddress(p)
+		if len(tags) > 0 {
+			p.AddTags(tags[loc])
+		}
 		if err != nil {
 			log.Error("failed to derive address for phonon deposit: ", err)
 			return nil, err

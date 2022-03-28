@@ -250,15 +250,21 @@ func (apiSession *apiSession) initDepositPhonons(w http.ResponseWriter, r *http.
 	var depositPhononReq struct {
 		CurrencyType  model.CurrencyType
 		Denominations []*model.Denomination
+		Tags					[][]model.PhononTag
 	}
+	log.Debug("BODY: ", r.Body)
+
 	err = json.NewDecoder(r.Body).Decode(&depositPhononReq)
 	if err != nil {
-		log.Error("unable to decode initDeposit request")
+		log.Error("unable to decode initDeposit request", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	log.Debug("depositPhononReq: ", depositPhononReq)
 	log.Debug("denoms: ", depositPhononReq.Denominations)
-	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denominations)
+	log.Debug("tags: ", depositPhononReq.Tags)
+
+	phonons, err := sess.InitDepositPhonons(depositPhononReq.CurrencyType, depositPhononReq.Denominations, depositPhononReq.Tags)
 	if err != nil {
 		log.Error("unable to create phonons for deposit. err: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

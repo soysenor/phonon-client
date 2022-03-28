@@ -24,20 +24,20 @@ type EthChainServiceConfig struct {
 func DefaultConfig() Config {
 	//Add viper/commandline integration later
 	conf := Config{
-		AppletCACert: cert.PhononDemoCAPubKey,
+		AppletCACert: cert.PhononAlphaCAPubKey, //cert.PhononDemoCAPubKey
 		LogLevel:     log.DebugLevel,
 	}
 	return conf
 }
 
 func SetDefaultConfig() {
-	viper.SetDefault("AppletCACert", cert.PhononDemoCAPubKey)
+	viper.SetDefault("AppletCACert", cert.PhononAlphaCAPubKey)
 	viper.SetDefault("LogLevel", log.DebugLevel)
 }
 
 func LoadConfig() (config Config, err error) {
 	SetDefaultConfig()
-	viper.AddConfigPath("$HOME/.phonon/")
+	viper.AddConfigPath("$HOME/Sites/senor/phonon-client/")
 	viper.AddConfigPath("$XDG_CONFIG_HOME/.phonon/phonon.yml")
 	viper.AddConfigPath("/usr/var/phonon/phonon.yml")
 	viper.SetConfigName("phonon")

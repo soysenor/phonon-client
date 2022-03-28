@@ -76,7 +76,12 @@ func Start() {
 		Name: "setDescriptor",
 		Func: setDescriptor,
 		Help: `Set the metadata associated with this phonon.
-		       Args: [KeyIndex] [CurrencyType] [Value]`,
+		       Args: [KeyIndex] [CurrencyType] [Value] [ChainID] [*Tags*]`,
+	})
+	shell.AddCmd(&ishell.Cmd{
+		Name: "verifyBalance",
+		Func: verifyBalance,
+		Help: "Verify the contents of the given phonon on the blockchain",
 	})
 	shell.AddCmd(&ishell.Cmd{
 		Name: "redeem",

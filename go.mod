@@ -19,8 +19,10 @@ require (
 	github.com/posener/h2conn v0.0.0-20180911140238-13e7df33ed15
 	github.com/rs/cors v1.8.0
 	github.com/sirupsen/logrus v1.7.0
+	github.com/soysenor/eth-go-bindings v0.0.0-20220327014037-b87989c72111 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.10.1
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )

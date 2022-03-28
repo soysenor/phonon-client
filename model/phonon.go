@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 
@@ -44,6 +45,11 @@ func (p *Phonon) String() string {
 		p.ExtendedTLV)
 }
 
+type PhononTag struct {
+	TagName string
+	TagValue string
+}
+
 //Phonon data structured for display to the user an
 type PhononJSON struct {
 	KeyIndex              uint16
@@ -55,6 +61,7 @@ type PhononJSON struct {
 	Denomination          Denomination
 	CurrencyType          int
 	ChainID               int
+	ExtendedTLV						[]PhononTag
 }
 
 //Unmarshals a PhononUserView into an internal phonon representation
@@ -82,11 +89,14 @@ func (p *Phonon) UnmarshalJSON(b []byte) error {
 	p.Denomination = phJSON.Denomination
 	p.CurrencyType = CurrencyType(phJSON.CurrencyType)
 	p.ChainID = phJSON.ChainID
+	p.AddTags(phJSON.ExtendedTLV);
 
 	return nil
 }
 
 func (p *Phonon) MarshalJSON() ([]byte, error) {
+	tags, err := p.marshalTags();
+
 	userReqPhonon := &PhononJSON{
 		KeyIndex:              p.KeyIndex,
 		PubKey:                util.ECCPubKeyToHexString(p.PubKey),
@@ -96,7 +106,7 @@ func (p *Phonon) MarshalJSON() ([]byte, error) {
 		Denomination:          p.Denomination,
 		CurrencyType:          int(p.CurrencyType),
 		ChainID:               p.ChainID,
-		//TODO extendedTLV
+		ExtendedTLV:					 tags,
 	}
 	jsonBytes, err := json.Marshal(userReqPhonon)
 	if err != nil {
@@ -105,13 +115,98 @@ func (p *Phonon) MarshalJSON() ([]byte, error) {
 	return jsonBytes, nil
 }
 
+// Takes []PhononTag and Converts into TLV
+func (p *Phonon) AddTags(newTags []PhononTag) error {
+	for _, tag := range newTags {
+
+		switch tag.TagName {
+		case "TagPhononContractAddress":
+			tagBytes := []byte(tag.TagValue)
+			tagTLV, err := tlv.NewTLV(0x58, tagBytes)
+
+			if err != nil {
+				log.Error("SetDescriptorWithTags failed for TagPhononContractAddress: ", err)
+				return err
+			}
+
+			p.ExtendedTLV = append(p.ExtendedTLV, tagTLV)
+
+		case "TagPhononContractTokenID":
+			tagValue, err := strconv.ParseFloat(tag.TagValue, 32)
+			if err != nil {
+				log.Error("SetDescriptorWithTags Failed for TagPhononContractTokenID: ", err)
+				return err
+			}
+			tagBytes, err := util.Float32ToBytes(float32(tagValue))
+			if err != nil {
+				log.Error("SetDescriptorWithTags failed: ", err)
+				return err
+			}
+			tagTLV, err := tlv.NewTLV(0x59, tagBytes)
+			p.ExtendedTLV = append(p.ExtendedTLV, tagTLV)
+		}
+	}
+	return nil
+}
+
+// Takes TLV and Converts into []PhononTag
+func (p *Phonon) marshalTags() (tags []PhononTag, err error) {
+	tags = make([]PhononTag, 0)
+
+	encodedTLVs := tlv.EncodeTLVList(p.ExtendedTLV...)
+
+	collection, err := tlv.ParseTLVPacket(encodedTLVs)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range collection {
+		switch k {
+			case 0x58:
+				tags = append(tags,
+					PhononTag{
+						TagName: "TagPhononContractAddress",
+						TagValue: string(v[0]),
+					},
+				)
+			case 0x59:
+				token, err := util.BytesToFloat32(v[0]);
+				if err != nil {
+					log.Error("Failed converting tokenID ")
+					return nil, err;
+				}
+				tags = append(tags,
+					PhononTag{
+						TagName: "TagPhononContractTokenID",
+						TagValue: fmt.Sprint(token),
+					},
+				)
+			default:
+				tags = append(tags,
+					PhononTag{
+						TagName: fmt.Sprint(k),
+						TagValue: "Unknown",
+					},
+				)
+		}
+	}
+	return tags, nil
+}
+
 type CurrencyType uint16
 
 const (
 	Unspecified CurrencyType = 0x0000
 	Bitcoin     CurrencyType = 0x0001
 	Ethereum    CurrencyType = 0x0002
+	EthereumERC721 CurrencyType = 0x0003
+	EthereumERC20 CurrencyType = 0x0004
 )
+
+var CurrencyTypeTagsRequired =  map[CurrencyType][]string {
+  EthereumERC721: {"TagPhononContractAddress","TagPhononContractTokenID"},
+	EthereumERC20: {"TagPhononContractAddress"},
+}
 
 type CurveType uint8
 
