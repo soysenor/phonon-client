@@ -74,14 +74,7 @@ func (eth *EthChainService) RedeemPhonon(p *model.Phonon, privKey *ecdsa.Private
 			}
 			return tx, nil
 
-		case model.EthereumERC721:
-			tx, err := eth.redeemToken(p, ctx, privKey, redeemAddress)
-			if err != nil {
-				return "", err
-			}
-			return tx, nil
-
-		case model.EthereumERC20:
+		case model.EthereumERC721, model.EthereumERC20:
 			tx, err := eth.redeemToken(p, ctx, privKey, redeemAddress)
 			if err != nil {
 				return "", err
