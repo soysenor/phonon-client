@@ -268,38 +268,40 @@ func (eth *EthChainService) redeemToken(p *model.Phonon, ctx context.Context, pr
 	fnSig := []byte(method)
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(fnSig)
-  methodID := hash.Sum(nil)[:4]
+  	methodID := hash.Sum(nil)[:4]
 	toAddress := common.HexToAddress(redeemAddress)
 	paddedAddress := common.LeftPadBytes(toAddress.Bytes(), 32)
 	paddedAmount := common.LeftPadBytes(amount, 32)
 
 	// build data packet including additional address parameter for erc721
 	var data []byte
-  data = append(data, methodID...)
+  	data = append(data, methodID...)
 	if p.CurrencyType == model.EthereumERC721 {
 		paddedFromAddress := common.LeftPadBytes(fromAddress.Bytes(), 32)
 		data = append(data, paddedFromAddress...)
 	}
-  data = append(data, paddedAddress...)
-  data = append(data, paddedAmount...)
-
+  	data = append(data, paddedAddress...)
+  	data = append(data, paddedAmount...)
 
 	gasLimit, err := eth.cl.EstimateGas(ctx, ethereum.CallMsg{
 		To:   &contractAddress,
 		Data: data,
 	})
+	
 	if err != nil {
 		return "", errors.New("cannot estimate gaslimit for redemption")
 	}
-
+	leftOverValue := eth.calcRedemptionValue(onChainBalance, big.NewInt(int64(gasLimit)))
+	if leftOverValue < 0 {
+		return "", errors.New("Not enough eth to send token")	
+	}
 	tx, err := eth.submitLegacyTransaction(ctx, nonce, big.NewInt(int64(p.ChainID)), common.HexToAddress(redeemAddress), big.NewInt(0), gasLimit, suggestedGasPrice, privKey, data)
 	if err != nil {
 		return "", err
 	}
 
-	//TODO: if for some reason there is a bunch of eth in the erc20 phonon
-	//it should be captured by a subsequent redeemETH
-	leftOverValue := eth.calcRedemptionValue(onChainBalance, big.NewInt(int64(gasLimit)))
+	//TODO: to collect left over ETH, redeemEth should be called
+	
 	log.Debug("potential leftover eth in wallet: ", leftOverValue)
 
 	return tx.Hash().String(), nil
@@ -324,7 +326,7 @@ func (eth *EthChainService) fetchPreTransactionInfo(ctx context.Context, fromAdd
 		log.Error("error fetching suggested gas price: ", err)
 		return 0, nil, nil, err
 	}
-	log.Debug("suggest gas price is: ", suggestedGasPrice)
+	log.Debug("suggested gas price is: ", suggestedGasPrice)
 	return nonce, balance, suggestedGasPrice, nil
 }
 
