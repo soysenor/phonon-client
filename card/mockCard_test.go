@@ -3,8 +3,6 @@ package card
 import (
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/GridPlus/phonon-client/cert"
 	"github.com/GridPlus/phonon-client/model"
 )
@@ -42,14 +40,20 @@ func TestCardPair(t *testing.T) {
 }
 
 func TestCreatePostedPhonons(t *testing.T) {
-	card, err := NewMockCard(true, false)
+	senderCard, err := NewMockCard(true, false)
 	if err != nil {
 		t.Error(err)
 	}
 
-	card.VerifyPIN("111111")
+	recipientCard, err := NewMockCard(true, false)
+	if err != nil {
+		t.Error(err)
+	}
 
-	keyIndex, pubKey, err := card.CreatePhonon(model.Secp256k1)
+	senderCard.VerifyPIN("111111")
+	recipientCard.VerifyPIN("111111")
+
+	keyIndex, pubKey, err := senderCard.CreatePhonon(model.Secp256k1)
 
 	if err != nil {
 		t.Error(err)
@@ -63,11 +67,17 @@ func TestCreatePostedPhonons(t *testing.T) {
 		t.Error("pubKey is nil", pubKey)
 	}
 
-	result, err := card.SendPostedPhonons("abc123", 1, []uint16{1})
+	// todo - work out correct way to pass in recipients public key
+	sendResult, err := senderCard.SendPostedPhonons(recipientCard.IdentityCert.String(), 1, []uint16{0})
 
 	if err != nil {
 		t.Error(err)
 	}
 
-	log.Debug(result)
+	err = recipientCard.ReceivePostedPhonons(sendResult)
+
+	if err != nil {
+		t.Error(err)
+	}
+
 }

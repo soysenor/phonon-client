@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -96,20 +97,14 @@ func (phonon *MockPhonon) Encode() (tlv.TLV, error) {
 	return phononDescriptionTLV, nil
 }
 
-func (phonon *MockPhonon) EncodePosted(recipientsPublicKey string, nonce uint64) (tlv.TLV, error) {
-	//todo - encrypt private key with recipients public key
-	privKeyTLV, err := tlv.NewTLV(TagPhononPrivKey, phonon.PrivateKey)
+func (phonon *MockPhonon) EncodePosted(encyptedPrivateKey []byte) (tlv.TLV, error) {
+	privKeyTLV, err := tlv.NewTLV(TagPhononPrivKey, encyptedPrivateKey)
 	if err != nil {
 		log.Error("could not encode mockPhonon privKey: ", err)
 		return tlv.TLV{}, err
 	}
 	//CurveType
 	curveTypeTLV, err := tlv.NewTLV(TagCurveType, []byte{byte(phonon.CurveType)})
-	if err != nil {
-		return tlv.TLV{}, err
-	}
-	//Nonce
-	nonceTLV, err := tlv.NewTLV(TagNonce, []byte{byte(nonce)})
 	if err != nil {
 		return tlv.TLV{}, err
 	}
@@ -122,7 +117,6 @@ func (phonon *MockPhonon) EncodePosted(recipientsPublicKey string, nonce uint64)
 	}
 	data := append(privKeyTLV.Encode(), curveTypeTLV.Encode()...)
 	// not sure if nonceTLV needs to be encoded. I noticed that phononTLV isnt...
-	data = append(data, nonceTLV.Encode()...)
 	data = append(data, phononTLV...)
 	phononDescriptionTLV, err := tlv.NewTLV(TagPhononPrivateDescription, data)
 	if err != nil {
@@ -806,7 +800,8 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey string, nonce uint64, k
 			return nil, errors.New("cannot access deleted phonon")
 		}
 		var phononTLV tlv.TLV
-		phononTLV, err := c.Phonons[k].EncodePosted(recipientsPublicKey, nonce)
+		// todo - pass in encrypted private key
+		phononTLV, err := c.Phonons[k].EncodePosted([]byte{byte(1)})
 		if err != nil {
 			return nil, errors.New("could not encode phonon TLV")
 		}
@@ -814,9 +809,23 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey string, nonce uint64, k
 		outgoingPhonons = append(outgoingPhonons, phononTLV.Encode()...)
 	}
 
-	phononTransferTLV, err := tlv.NewTLV(TagTransferPhononPacket, outgoingPhonons)
+	phononsTLV, err := tlv.NewTLV(TagPhononPrivateDescription, outgoingPhonons)
 	if err != nil {
 		return nil, errors.New("could not encode phonon transfer TLV")
+	}
+	println("testing", nonce, binary.BigEndian.Uint64([]byte{byte(nonce)}))
+
+	nonceTLV, err := tlv.NewTLV(TagNonce, []byte{byte(nonce)})
+	if err != nil {
+		return nil, errors.New("could not encode nonce TLV")
+	}
+
+	data := append(nonceTLV.Encode(), phononsTLV.Encode()...)
+
+	phononTransferTLV, err := tlv.NewTLV(TagTransferPostedPhononPacket, data)
+	if err != nil {
+		log.Error("mock could not encode phonon description: ", err)
+		return nil, err
 	}
 
 	//Delete sent phonons
@@ -858,6 +867,46 @@ func (c *MockCard) ReceivePhonons(transaction []byte) (err error) {
 	for _, p := range phonons {
 		c.addPhonon(&p)
 	}
+
+	return nil
+}
+
+func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
+	log.Debug("mock RECEIVE_POSTED_PHONONS command")
+
+	phononTransferPacketTLV, err := tlv.ParseTLVPacket(transaction, TagTransferPostedPhononPacket)
+	if err != nil {
+		return err
+	}
+
+	nonceTLV, err := phononTransferPacketTLV.FindTag(TagNonce)
+
+	if err != nil {
+		return err
+	}
+
+	nonce := binary.BigEndian.Uint64(nonceTLV)
+
+	println("nonceTLV", nonceTLV, nonce)
+
+	// phononTLVs, err := phononTransferPacketTLV.FindTags(TagPhononPrivateDescription)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// //Parse all received phonons
+	// var phonons []MockPhonon
+	// for _, tlv := range phononTLVs {
+	// 	phonon, err := decodePhononTLV(tlv)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	phonons = append(phonons, phonon)
+	// }
+	// //Store all received phonons
+	// for _, p := range phonons {
+	// 	c.addPhonon(&p)
+	// }
 
 	return nil
 }
