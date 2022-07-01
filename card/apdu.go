@@ -80,6 +80,7 @@ const (
 	TagAESKey          = 0x95
 
 	TagInvoiceID = 0x96
+	TagNonce     = 0x97
 
 	//extended tags
 	TagChainID = 0x20

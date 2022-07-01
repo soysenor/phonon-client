@@ -96,6 +96,43 @@ func (phonon *MockPhonon) Encode() (tlv.TLV, error) {
 	return phononDescriptionTLV, nil
 }
 
+func (phonon *MockPhonon) EncodePosted(recipientsPublicKey string, nonce uint64) (tlv.TLV, error) {
+	//todo - encrypt private key with recipients public key
+	privKeyTLV, err := tlv.NewTLV(TagPhononPrivKey, phonon.PrivateKey)
+	if err != nil {
+		log.Error("could not encode mockPhonon privKey: ", err)
+		return tlv.TLV{}, err
+	}
+	//CurveType
+	curveTypeTLV, err := tlv.NewTLV(TagCurveType, []byte{byte(phonon.CurveType)})
+	if err != nil {
+		return tlv.TLV{}, err
+	}
+	//Nonce
+	nonceTLV, err := tlv.NewTLV(TagNonce, []byte{byte(nonce)})
+	if err != nil {
+		return tlv.TLV{}, err
+	}
+
+	//Encode internal phonon
+	phononTLV, err := TLVEncodePhononDescriptor(&phonon.Phonon)
+	if err != nil {
+		log.Error("mock could not encode inner phonon: ", phonon.Phonon)
+		return tlv.TLV{}, err
+	}
+	data := append(privKeyTLV.Encode(), curveTypeTLV.Encode()...)
+	// not sure if nonceTLV needs to be encoded. I noticed that phononTLV isnt...
+	data = append(data, nonceTLV.Encode()...)
+	data = append(data, phononTLV...)
+	phononDescriptionTLV, err := tlv.NewTLV(TagPhononPrivateDescription, data)
+	if err != nil {
+		log.Error("mock could not encode phonon description: ", err)
+		return tlv.TLV{}, err
+	}
+
+	return phononDescriptionTLV, nil
+}
+
 func decodePhononTLV(privatePhononTLV []byte) (phonon MockPhonon, err error) {
 	phononTLV, err := tlv.ParseTLVPacket(privatePhononTLV, TagPhononPrivateDescription)
 	if err != nil {
@@ -757,6 +794,38 @@ func (c *MockCard) SendPhonons(keyIndices []uint16, extendedRequest bool) (trans
 
 // 	return nil
 // }
+
+func (c *MockCard) SendPostedPhonons(recipientsPublicKey string, nonce uint64, keyIndices []uint16) (transferPhononPackets []byte, err error) {
+	log.Debug("mock SEND_POSTED_PHONONS command")
+	var outgoingPhonons []byte
+	for _, k := range keyIndices {
+		if int(k) >= len(c.Phonons) {
+			return nil, errors.New("keyIndex exceeds length of phonon list")
+		}
+		if c.Phonons[k].deleted {
+			return nil, errors.New("cannot access deleted phonon")
+		}
+		var phononTLV tlv.TLV
+		phononTLV, err := c.Phonons[k].EncodePosted(recipientsPublicKey, nonce)
+		if err != nil {
+			return nil, errors.New("could not encode phonon TLV")
+		}
+
+		outgoingPhonons = append(outgoingPhonons, phononTLV.Encode()...)
+	}
+
+	phononTransferTLV, err := tlv.NewTLV(TagTransferPhononPacket, outgoingPhonons)
+	if err != nil {
+		return nil, errors.New("could not encode phonon transfer TLV")
+	}
+
+	//Delete sent phonons
+	for _, k := range keyIndices {
+		c.deletePhonon(int(k))
+	}
+
+	return phononTransferTLV.Encode(), nil
+}
 
 func (c *MockCard) ReceivePhonons(transaction []byte) (err error) {
 	log.Debug("mock RECEIVE_PHONONS command")
