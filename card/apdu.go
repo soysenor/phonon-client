@@ -82,6 +82,7 @@ const (
 	TagInvoiceID                  = 0x96
 	TagNonce                      = 0x97
 	TagTransferPostedPhononPacket = 0x98
+	TagSignedPostedPhononMessage  = 0x99
 
 	//extended tags
 	TagChainID = 0x20

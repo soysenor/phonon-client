@@ -28,21 +28,22 @@ type MockCard struct {
 	Phonons []*MockPhonon
 
 	// This is a slice of indeces of deleted phonons. This is to match the insert logic of the card implementation
-	deletedPhonons  []int
-	pin             string
-	pinVerified     bool
-	sc              SecureChannel
-	receiveList     []*ecdsa.PublicKey
-	identityKey     *ecdsa.PrivateKey
-	IdentityPubKey  *ecdsa.PublicKey
-	IdentityCert    cert.CardCertificate
-	scPairData      SecureChannelPairingDetails
-	invoices        map[string][]byte
-	outgoingInvoice Invoice
-	staticPairing   bool
-	friendlyName    string
-	mintLimit       int
-	mintRate        int
+	deletedPhonons    []int
+	pin               string
+	pinVerified       bool
+	sc                SecureChannel
+	receiveList       []*ecdsa.PublicKey
+	identityKey       *ecdsa.PrivateKey
+	IdentityPubKey    *ecdsa.PublicKey
+	IdentityCert      cert.CardCertificate
+	scPairData        SecureChannelPairingDetails
+	invoices          map[string][]byte
+	outgoingInvoice   Invoice
+	staticPairing     bool
+	friendlyName      string
+	mintLimit         int
+	mintRate          int
+	postedPhononNonce uint64
 }
 
 type MockPhonon struct {
@@ -116,7 +117,6 @@ func (phonon *MockPhonon) EncodePosted(encyptedPrivateKey []byte) (tlv.TLV, erro
 		return tlv.TLV{}, err
 	}
 	data := append(privKeyTLV.Encode(), curveTypeTLV.Encode()...)
-	// not sure if nonceTLV needs to be encoded. I noticed that phononTLV isnt...
 	data = append(data, phononTLV...)
 	phononDescriptionTLV, err := tlv.NewTLV(TagPhononPrivateDescription, data)
 	if err != nil {
@@ -789,7 +789,7 @@ func (c *MockCard) SendPhonons(keyIndices []uint16, extendedRequest bool) (trans
 // 	return nil
 // }
 
-func (c *MockCard) SendPostedPhonons(recipientsPublicKey string, nonce uint64, keyIndices []uint16) (transferPhononPackets []byte, err error) {
+func (c *MockCard) SendPostedPhonons(recipientsPublicKey []byte, nonce uint64, keyIndices []uint16) (transferPhononPackets []byte, err error) {
 	log.Debug("mock SEND_POSTED_PHONONS command")
 	var outgoingPhonons []byte
 	for _, k := range keyIndices {
@@ -799,9 +799,11 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey string, nonce uint64, k
 		if c.Phonons[k].deleted {
 			return nil, errors.New("cannot access deleted phonon")
 		}
-		var phononTLV tlv.TLV
-		// todo - pass in encrypted private key
-		phononTLV, err := c.Phonons[k].EncodePosted([]byte{byte(1)})
+
+		phonon := c.Phonons[k]
+
+		// todo - encrypt private key with recipient's public key
+		phononTLV, err := phonon.EncodePosted(phonon.PrivateKey)
 		if err != nil {
 			return nil, errors.New("could not encode phonon TLV")
 		}
@@ -813,14 +815,29 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey string, nonce uint64, k
 	if err != nil {
 		return nil, errors.New("could not encode phonon transfer TLV")
 	}
-	println("testing", nonce, binary.BigEndian.Uint64([]byte{byte(nonce)}))
 
-	nonceTLV, err := tlv.NewTLV(TagNonce, []byte{byte(nonce)})
+	nonceBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))
+
+	nonceTLV, err := tlv.NewTLV(TagNonce, nonceBytes)
 	if err != nil {
 		return nil, errors.New("could not encode nonce TLV")
 	}
 
+	certTLV, err := tlv.NewTLV(TagCardCertificate, c.IdentityCert.Serialize())
+	if err != nil {
+		return nil, errors.New("could not encode cert TLV")
+	}
+
+	// todo - sign message with card private key (Recipient's card's public key, Nonce, Hash of the phonon collection)
+	signedMessageTLV, err := tlv.NewTLV(TagSignedPostedPhononMessage, []byte{0})
+	if err != nil {
+		return nil, errors.New("could not encode signedMessage TLV")
+	}
+
 	data := append(nonceTLV.Encode(), phononsTLV.Encode()...)
+	data = append(data, certTLV.Encode()...)
+	data = append(data, signedMessageTLV.Encode()...)
 
 	phononTransferTLV, err := tlv.NewTLV(TagTransferPostedPhononPacket, data)
 	if err != nil {
@@ -887,26 +904,48 @@ func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 
 	nonce := binary.BigEndian.Uint64(nonceTLV)
 
-	println("nonceTLV", nonceTLV, nonce)
+	if nonce <= c.postedPhononNonce {
+		return errors.New("transaction.nonce is less than or equal to card.postedPhononNonce ")
+	}
 
-	// phononTLVs, err := phononTransferPacketTLV.FindTags(TagPhononPrivateDescription)
-	// if err != nil {
-	// 	return err
-	// }
+	certTLV, err := phononTransferPacketTLV.FindTag(TagCardCertificate)
 
-	// //Parse all received phonons
-	// var phonons []MockPhonon
-	// for _, tlv := range phononTLVs {
-	// 	phonon, err := decodePhononTLV(tlv)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	phonons = append(phonons, phonon)
-	// }
-	// //Store all received phonons
-	// for _, p := range phonons {
-	// 	c.addPhonon(&p)
-	// }
+	if err != nil {
+		return err
+	}
+
+	// todo - ensure cert is signed by valid phonon card issuer
+	println("certTLV: ", certTLV)
+
+	signedMessageTLV, err := phononTransferPacketTLV.FindTag(TagSignedPostedPhononMessage)
+
+	if err != nil {
+		return err
+	}
+
+	// todo - ensure message is signed by key pair in cert
+	println("signedMessage: ", signedMessageTLV)
+
+	phononTLVs, err := phononTransferPacketTLV.FindTags(TagPhononPrivateDescription)
+	if err != nil {
+		return err
+	}
+
+	//Parse all received phonons
+	var phonons []MockPhonon
+	for _, tlv := range phononTLVs {
+		phonon, err := decodePhononTLV(tlv)
+		if err != nil {
+			return err
+		}
+		phonons = append(phonons, phonon)
+	}
+	//Store all received phonons
+	for _, p := range phonons {
+		c.addPhonon(&p)
+	}
+
+	c.postedPhononNonce = nonce
 
 	return nil
 }
