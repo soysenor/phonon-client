@@ -830,7 +830,6 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey []byte, nonce uint64, k
 	}
 
 	// todo - sign message with card private key (Recipient's card's public key, Nonce, Hash of the phonon collection)
-
 	sig, err := ecdsa.SignASN1(rand.Reader, c.identityKey, []byte{0})
 
 	if err != nil {
@@ -846,19 +845,12 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey []byte, nonce uint64, k
 	data = append(data, cardCertTLV.Encode()...)
 	data = append(data, sigTLV.Encode()...)
 
-	// error here. Data too big.
-	phononTransferTLV, err := tlv.NewTLV(TagTransferPhononPacket, data)
-	if err != nil {
-		log.Error("mock could not encode phonon description: ", err)
-		return nil, err
-	}
-
 	//Delete sent phonons
 	for _, k := range keyIndices {
 		c.deletePhonon(int(k))
 	}
 
-	return phononTransferTLV.Encode(), nil
+	return data, nil
 }
 
 func (c *MockCard) ReceivePhonons(transaction []byte) (err error) {
@@ -899,12 +891,12 @@ func (c *MockCard) ReceivePhonons(transaction []byte) (err error) {
 func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 	log.Debug("mock RECEIVE_POSTED_PHONONS command")
 
-	phononTransferPacketTLV, err := tlv.ParseTLVPacket(transaction, TagTransferPhononPacket)
+	collection, err := tlv.ParseTLVPacket(transaction)
 	if err != nil {
 		return err
 	}
 
-	nonceTLV, err := phononTransferPacketTLV.FindTag(TagNonce)
+	nonceTLV, err := collection.FindTag(TagNonce)
 
 	if err != nil {
 		return err
@@ -916,7 +908,7 @@ func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 		return errors.New("transaction.nonce is less than or equal to card.postedPhononNonce")
 	}
 
-	senderCardCertRaw, err := phononTransferPacketTLV.FindTag(TagCardCertificate)
+	senderCardCertRaw, err := collection.FindTag(TagCardCertificate)
 	if err != nil {
 		return errors.New("could not find certificate tlv tag")
 	}
@@ -941,7 +933,7 @@ func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 		return errors.New("counterparty public key is not valid ECC point")
 	}
 
-	signedMessageTLV, err := phononTransferPacketTLV.FindTag(TagECDSASig)
+	signedMessageTLV, err := collection.FindTag(TagECDSASig)
 
 	if err != nil {
 		return err
@@ -950,7 +942,7 @@ func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 	// todo - ensure message is signed by key pair in cert
 	println("signedMessage: ", signedMessageTLV)
 
-	phononTLVs, err := phononTransferPacketTLV.FindTags(TagPhononPrivateDescription)
+	phononTLVs, err := collection.FindTags(TagPhononPrivateDescription)
 	if err != nil {
 		return err
 	}

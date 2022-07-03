@@ -26,7 +26,6 @@ var ErrTagEmpty = errors.New("tag contained no parsed data")
 
 //Create a TLV struct from a tag identifier and a value represented as bytes
 func NewTLV(tag byte, value []byte) (TLV, error) {
-	println("-------------", len(value))
 	if len(value) > MaxValueBytes {
 		return TLV{}, ErrValueLengthExceedsMax
 	}
