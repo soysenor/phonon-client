@@ -79,10 +79,8 @@ const (
 	TagPairingIndex    = 0x94
 	TagAESKey          = 0x95
 
-	TagInvoiceID                  = 0x96
-	TagNonce                      = 0x97
-	TagTransferPostedPhononPacket = 0x98
-	TagSignedPostedPhononMessage  = 0x99
+	TagInvoiceID = 0x96
+	TagNonce     = 0x97
 
 	//extended tags
 	TagChainID = 0x20

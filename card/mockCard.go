@@ -824,22 +824,29 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey []byte, nonce uint64, k
 		return nil, errors.New("could not encode nonce TLV")
 	}
 
-	certTLV, err := tlv.NewTLV(TagCardCertificate, c.IdentityCert.Serialize())
+	cardCertTLV, err := tlv.NewTLV(TagCardCertificate, c.IdentityCert.Serialize())
 	if err != nil {
 		return nil, errors.New("could not encode cert TLV")
 	}
 
 	// todo - sign message with card private key (Recipient's card's public key, Nonce, Hash of the phonon collection)
-	signedMessageTLV, err := tlv.NewTLV(TagSignedPostedPhononMessage, []byte{0})
+
+	sig, err := ecdsa.SignASN1(rand.Reader, c.identityKey, []byte{0})
+
+	if err != nil {
+		return nil, err
+	}
+
+	sigTLV, err := tlv.NewTLV(TagECDSASig, sig)
 	if err != nil {
 		return nil, errors.New("could not encode signedMessage TLV")
 	}
 
 	data := append(nonceTLV.Encode(), phononsTLV.Encode()...)
-	data = append(data, certTLV.Encode()...)
-	data = append(data, signedMessageTLV.Encode()...)
+	data = append(data, cardCertTLV.Encode()...)
+	data = append(data, sigTLV.Encode()...)
 
-	phononTransferTLV, err := tlv.NewTLV(TagTransferPostedPhononPacket, data)
+	phononTransferTLV, err := tlv.NewTLV(TagTransferPhononPacket, data)
 	if err != nil {
 		log.Error("mock could not encode phonon description: ", err)
 		return nil, err
@@ -891,7 +898,7 @@ func (c *MockCard) ReceivePhonons(transaction []byte) (err error) {
 func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 	log.Debug("mock RECEIVE_POSTED_PHONONS command")
 
-	phononTransferPacketTLV, err := tlv.ParseTLVPacket(transaction, TagTransferPostedPhononPacket)
+	phononTransferPacketTLV, err := tlv.ParseTLVPacket(transaction, TagTransferPhononPacket)
 	if err != nil {
 		return err
 	}
@@ -905,19 +912,35 @@ func (c *MockCard) ReceivePostedPhonons(transaction []byte) (err error) {
 	nonce := binary.BigEndian.Uint64(nonceTLV)
 
 	if nonce <= c.postedPhononNonce {
-		return errors.New("transaction.nonce is less than or equal to card.postedPhononNonce ")
+		return errors.New("transaction.nonce is less than or equal to card.postedPhononNonce")
 	}
 
-	certTLV, err := phononTransferPacketTLV.FindTag(TagCardCertificate)
+	senderCardCertRaw, err := phononTransferPacketTLV.FindTag(TagCardCertificate)
+	if err != nil {
+		return errors.New("could not find certificate tlv tag")
+	}
 
+	senderCardCert, err := cert.ParseRawCardCertificate(senderCardCertRaw)
 	if err != nil {
 		return err
 	}
 
-	// todo - ensure cert is signed by valid phonon card issuer
-	println("certTLV: ", certTLV)
+	senderPubKey, err := util.ParseECCPubKey(senderCardCert.PubKey)
+	if err != nil {
+		return err
+	}
 
-	signedMessageTLV, err := phononTransferPacketTLV.FindTag(TagSignedPostedPhononMessage)
+	err = cert.ValidateCardCertificate(senderCardCert, gridplus.SafecardDevCAPubKey)
+	if err != nil {
+		return err
+	}
+
+	pubKeyValid := gridplus.ValidateECCPubKey(senderPubKey)
+	if !pubKeyValid {
+		return errors.New("counterparty public key is not valid ECC point")
+	}
+
+	signedMessageTLV, err := phononTransferPacketTLV.FindTag(TagECDSASig)
 
 	if err != nil {
 		return err
