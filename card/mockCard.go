@@ -846,6 +846,7 @@ func (c *MockCard) SendPostedPhonons(recipientsPublicKey []byte, nonce uint64, k
 	data = append(data, cardCertTLV.Encode()...)
 	data = append(data, sigTLV.Encode()...)
 
+	// error here. Data too big.
 	phononTransferTLV, err := tlv.NewTLV(TagTransferPhononPacket, data)
 	if err != nil {
 		log.Error("mock could not encode phonon description: ", err)
